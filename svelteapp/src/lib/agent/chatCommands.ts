@@ -74,6 +74,44 @@ const commands: Record<string, {
 			return `📋 Task sent to mesh: "${args.trim()}"`;
 		}
 	},
+	status: {
+		description: 'Show full system status',
+		handler: async () => {
+			const parts: string[] = ['**System Status**\n'];
+
+			// Mesh
+			if (browserDaemon.connected) {
+				try {
+					const resp = await fetch('http://localhost:7777/status');
+					const data = await resp.json();
+					parts.push(`🔗 **Mesh:** ${data.daemons.length} daemon(s)`);
+					data.daemons.forEach((d: any) => parts.push(`   ${d.status === 'alive' ? '🟢' : '🔴'} ${d.name}: ${d.tldr}`));
+				} catch {
+					parts.push('🔗 **Mesh:** connected (status unavailable)');
+				}
+			} else {
+				parts.push('○ **Mesh:** offline');
+			}
+
+			// Debug snapshot
+			try {
+				const resp = await fetch('/api/debug');
+				const data = await resp.json();
+				if (data.snapshot) {
+					parts.push(`\n📊 **TLDR:** ${data.snapshot.tldr}`);
+					parts.push(`💬 Messages: ${data.snapshot.chat?.messageCount || 0}`);
+					if (data.snapshot.apiExplorer?.discoveredRoutes?.length > 0) {
+						parts.push(`🔌 API Routes: ${data.snapshot.apiExplorer.discoveredRoutes.length}`);
+					}
+					if (data.snapshot.errors?.length > 0) {
+						parts.push(`⚠️ Errors: ${data.snapshot.errors.length}`);
+					}
+				}
+			} catch { /* ok */ }
+
+			return parts.join('\n');
+		}
+	},
 	query: {
 		description: 'Query a daemon (e.g., /query what errors are there?)',
 		handler: async (args) => {
