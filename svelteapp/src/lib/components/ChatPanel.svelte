@@ -3,7 +3,8 @@
 	import { getInstance } from '$lib/sandbox/container';
 	import { initRepo, commitAll, getLog, rollback, isRepoInitialized } from '$lib/git/gitManager';
 	import { subscribe as subscribeContainer, type ContainerState } from '$lib/sandbox/container';
-	import { settings } from '$lib/stores/settings';
+	import { settings } from '$lib/stores/settings.svelte';
+	import { agentState } from '$lib/stores/agentState.svelte';
 
 	interface Message {
 		role: 'user' | 'assistant' | 'tool';
@@ -154,6 +155,7 @@
 			scrollToBottom();
 
 			// Execute
+			agentState.setStatus('executing', `${toolName}: ${attrs.path || attrs.command || ''}`);
 			const result = await executeTool(toolName, attrs, body);
 
 			// Update tool message with result
@@ -201,6 +203,7 @@
 		messages = [...messages, { role: 'user', content: trimmed, timestamp: new Date() }];
 		input = '';
 		isStreaming = true;
+		agentState.setStatus('thinking', 'processing request');
 
 		await tick();
 		scrollToBottom();
@@ -239,6 +242,7 @@
 
 				const chunk = decoder.decode(value, { stream: true });
 				fullText += chunk;
+				agentState.setStatus('writing', 'generating response');
 
 				// Update the streaming message (strip tool blocks for display)
 				const displayText = fullText.replace(
@@ -285,6 +289,7 @@
 		} finally {
 			isStreaming = false;
 			userHasScrolled = false;
+			agentState.setStatus('idle');
 		}
 	}
 

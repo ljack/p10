@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { getInstance, subscribe, type ContainerState } from '$lib/sandbox/container';
 	import { getLog, rollback, type GitCommit } from '$lib/git/gitManager';
-	import { settings } from '$lib/stores/settings';
+	import { settings } from '$lib/stores/settings.svelte';
 
 	type BottomTab = 'files' | 'git' | 'specs' | 'tests' | 'settings';
 
