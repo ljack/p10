@@ -99,17 +99,22 @@ test.describe('Platform Boot', () => {
 		expect(result.body).toContain('ok');
 	});
 
-	test('mobile preview renders in phone frame', async ({ page }) => {
+	test('mobile preview renders as draggable overlay', async ({ page }) => {
 		await page.goto('/');
 		await waitForServers(page);
 
-		// Use force click since the always-mounted iframe may overlap the tab button
+		// Mobile is a toggle button, not a tab
 		await page.locator('button:has-text("Mobile")').click({ force: true });
 		await page.waitForTimeout(2000);
 
 		const mobileFrame = page.locator('iframe[title="Mobile Preview"]');
 		await expect(mobileFrame).toBeVisible();
 		await expect(page.getByText('iPhone SE', { exact: false })).toBeVisible();
+
+		// Close it
+		await page.locator('[data-mobile-frame] button:has-text("✕")').click();
+		await page.waitForTimeout(500);
+		await expect(mobileFrame).not.toBeVisible();
 	});
 
 	test('file browser shows project files', async ({ page }) => {

@@ -19,6 +19,32 @@
 		error: null
 	});
 	let iframeEl = $state<HTMLIFrameElement>();
+	let mobileVisible = $state(false);
+	let mobilePos = $state({ x: 100, y: 60 });
+	let draggingMobile = $state(false);
+	let dragOffset = { x: 0, y: 0 };
+
+	function onMobileDragStart(e: MouseEvent) {
+		draggingMobile = true;
+		const el = (e.currentTarget as HTMLElement).closest('[data-mobile-frame]') as HTMLElement;
+		const rect = el.getBoundingClientRect();
+		dragOffset = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+		e.preventDefault();
+	}
+
+	function onMouseMove(e: MouseEvent) {
+		if (!draggingMobile) return;
+		const container = (e.currentTarget as HTMLElement);
+		const rect = container.getBoundingClientRect();
+		mobilePos = {
+			x: e.clientX - rect.left - dragOffset.x,
+			y: e.clientY - rect.top - dragOffset.y
+		};
+	}
+
+	function onMouseUp() {
+		draggingMobile = false;
+	}
 
 	const tabs: { id: PreviewTab; label: string }[] = [
 		{ id: 'web', label: 'Web' },
@@ -65,17 +91,28 @@
 	<div class="h-8 flex items-center px-2 border-b border-panel-border shrink-0 gap-1 relative z-10">
 		<span class="text-accent text-xs font-bold mr-2">PREVIEW</span>
 		{#each tabs as tab}
-			<button
-				onclick={() => (activeTab = tab.id)}
-				class="px-2 py-0.5 text-xs rounded transition-colors {activeTab === tab.id
-					? 'bg-accent-dim text-accent'
-					: 'text-muted hover:text-foreground'}"
-			>
-				{tab.label}
-				{#if tab.id === 'api' && containerState.servers.some((s) => s.type === 'backend')}
-					<span class="text-accent ml-0.5">●</span>
-				{/if}
-			</button>
+			{#if tab.id === 'mobile'}
+				<button
+					onclick={() => (mobileVisible = !mobileVisible)}
+					class="px-2 py-0.5 text-xs rounded transition-colors {mobileVisible
+						? 'bg-accent-dim text-accent'
+						: 'text-muted hover:text-foreground'}"
+				>
+					{tab.label}
+				</button>
+			{:else}
+				<button
+					onclick={() => (activeTab = tab.id)}
+					class="px-2 py-0.5 text-xs rounded transition-colors {activeTab === tab.id
+						? 'bg-accent-dim text-accent'
+						: 'text-muted hover:text-foreground'}"
+				>
+					{tab.label}
+					{#if tab.id === 'api' && containerState.servers.some((s) => s.type === 'backend')}
+						<span class="text-accent ml-0.5">●</span>
+					{/if}
+				</button>
+			{/if}
 		{/each}
 
 		<div class="flex-1"></div>
@@ -88,7 +125,8 @@
 	</div>
 
 	<!-- Preview content -->
-	<div class="flex-1 min-h-0 relative">
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="flex-1 min-h-0 relative" onmousemove={onMouseMove} onmouseup={onMouseUp} onmouseleave={onMouseUp}>
 		<!-- Web iframe — always mounted for API bridge, hidden when not on web tab -->
 		{#if containerState.serverUrl}
 			<iframe
@@ -119,37 +157,40 @@
 			</div>
 		{:else if activeTab === 'api'}
 			<ApiPreview />
-		{:else}
-			<!-- Mobile Preview — responsive phone frame wrapping the web preview -->
-			<div class="h-full flex items-center justify-center bg-panel-bg">
-				{#if containerState.serverUrl}
-					<div class="flex flex-col items-center gap-2">
-						<div
-							class="w-[375px] h-[667px] border-4 border-panel-border rounded-3xl overflow-hidden shadow-lg bg-white relative"
-						>
-							<!-- Phone notch -->
-							<div
-								class="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-5 bg-panel-border rounded-b-xl z-10"
-							></div>
-							<iframe
-								src={containerState.serverUrl}
-								title="Mobile Preview"
-								class="w-full h-full border-none"
-								sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
-							></iframe>
-						</div>
-						<span class="text-muted text-xs">iPhone SE — 375×667</span>
-					</div>
-				{:else}
-					<div class="flex flex-col items-center gap-3 text-muted">
-						<div
-							class="w-32 h-56 border-2 border-panel-border rounded-xl flex items-center justify-center"
-						>
-							<span class="text-xs">Mobile</span>
-						</div>
-						<span class="text-xs">{getStatusText()}</span>
-					</div>
-				{/if}
+		{/if}
+
+		<!-- Floating Mobile Preview -->
+		{#if mobileVisible && containerState.serverUrl}
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div
+				data-mobile-frame
+				class="absolute z-20 flex flex-col items-center gap-1 {draggingMobile ? 'cursor-grabbing' : ''}"
+				style="left: {mobilePos.x}px; top: {mobilePos.y}px;"
+			>
+				<!-- Drag handle -->
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<div
+					onmousedown={onMobileDragStart}
+					class="w-full flex items-center justify-center gap-2 py-1 px-3 cursor-grab active:cursor-grabbing select-none"
+				>
+					<span class="text-muted text-xs">☰ iPhone SE — 375×667</span>
+					<button
+						onclick={() => (mobileVisible = false)}
+						class="text-muted hover:text-foreground text-xs ml-2"
+					>✕</button>
+				</div>
+				<!-- Phone frame -->
+				<div
+					class="w-[375px] h-[667px] border-4 border-panel-border rounded-3xl overflow-hidden shadow-2xl bg-white relative"
+				>
+					<div class="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-5 bg-panel-border rounded-b-xl z-10"></div>
+					<iframe
+						src={containerState.serverUrl}
+						title="Mobile Preview"
+						class="w-full h-full border-none"
+						sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+					></iframe>
+				</div>
 			</div>
 		{/if}
 	</div>
