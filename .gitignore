@@ -1,1 +1,3 @@
-node_modules\n.svelte-kit\nbuild\n.vite\n*.log
+node_modules
+test-results
+playwright-report\n.svelte-kit\nbuild\n.vite\n*.log
