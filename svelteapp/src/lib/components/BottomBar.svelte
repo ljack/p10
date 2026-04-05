@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { getInstance, subscribe, type ContainerState } from '$lib/sandbox/container';
 	import { getLog, rollback, type GitCommit } from '$lib/git/gitManager';
+	import { settings } from '$lib/stores/settings';
 
 	type BottomTab = 'files' | 'git' | 'specs' | 'tests' | 'settings';
 
@@ -180,10 +181,27 @@
 							id="api-key"
 							type="password"
 							placeholder="sk-ant-..."
+							value={settings.apiKey}
+							oninput={(e) => settings.setApiKey((e.target as HTMLInputElement).value)}
 							class="bg-background border border-panel-border text-foreground text-xs px-2 py-1 rounded w-72 outline-none focus:border-accent"
 						/>
+						{#if settings.apiKey}
+							<span class="text-accent ml-2">✓ saved</span>
+						{/if}
 					</div>
-					<div class="text-muted italic">Settings persistence in Sprint 6</div>
+					<div>
+						<label class="text-muted block mb-1" for="model">Model</label>
+						<select
+							id="model"
+							value={settings.model}
+							onchange={(e) => settings.setModel((e.target as HTMLSelectElement).value)}
+							class="bg-background border border-panel-border text-foreground text-xs px-2 py-1 rounded outline-none focus:border-accent"
+						>
+							<option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
+							<option value="claude-opus-4-20250514">Claude Opus 4</option>
+							<option value="claude-haiku-3-20250514">Claude Haiku 3</option>
+						</select>
+					</div>
 				</div>
 			{/if}
 		</div>

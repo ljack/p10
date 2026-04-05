@@ -40,6 +40,7 @@ The client will parse these blocks and execute them in the WebContainer. The pre
 export const POST: RequestHandler = async ({ request }) => {
 	const body = await request.json();
 	const apiKey = body.apiKey as string;
+	const model = (body.model as string) || 'claude-sonnet-4-20250514';
 	const rawMessages = body.messages as Array<{ role: string; content: string }>;
 
 	console.log('[api/chat] POST received:', rawMessages.length, 'messages, apiKey:', apiKey ? 'set' : 'missing');
@@ -61,7 +62,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	);
 
 	const result = streamText({
-		model: anthropic('claude-sonnet-4-20250514'),
+		model: anthropic(model),
 		system: SYSTEM_PROMPT,
 		messages: modelMessages
 	});

@@ -3,6 +3,7 @@
 	import { getInstance } from '$lib/sandbox/container';
 	import { initRepo, commitAll, getLog, rollback, isRepoInitialized } from '$lib/git/gitManager';
 	import { subscribe as subscribeContainer, type ContainerState } from '$lib/sandbox/container';
+	import { settings } from '$lib/stores/settings';
 
 	interface Message {
 		role: 'user' | 'assistant' | 'tool';
@@ -26,19 +27,14 @@
 	let input = $state('');
 	let isStreaming = $state(false);
 	let userHasScrolled = $state(false);
-	let apiKey = $state('');
+	// apiKey comes from settings store
 
 	let messagesContainer: HTMLDivElement | undefined = $state();
 	let messagesEnd: HTMLDivElement | undefined = $state();
 
 	let gitReady = $state(false);
 
-	// Load API key from localStorage
-	$effect(() => {
-		if (typeof window !== 'undefined') {
-			apiKey = localStorage.getItem('p10_api_key') || '';
-		}
-	});
+
 
 	// Init git repo when container is ready
 	$effect(() => {
@@ -175,10 +171,9 @@
 		if (!trimmed || isStreaming) return;
 
 		// Handle API key input
-		if (!apiKey) {
+		if (!settings.apiKey) {
 			if (trimmed.startsWith('sk-ant-')) {
-				apiKey = trimmed;
-				localStorage.setItem('p10_api_key', trimmed);
+				settings.setApiKey(trimmed);
 				messages = [
 					...messages,
 					{
@@ -219,7 +214,7 @@
 			const response = await fetch('/api/chat', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ messages: apiMessages, apiKey })
+				body: JSON.stringify({ messages: apiMessages, apiKey: settings.apiKey, model: settings.model })
 			});
 
 			if (!response.ok) {
@@ -312,7 +307,7 @@
 		{#if isStreaming}
 			<span class="ml-2 text-warning text-xs animate-pulse">● streaming</span>
 		{/if}
-		{#if !apiKey}
+		{#if !settings.apiKey}
 			<span class="ml-2 text-error text-xs">● no API key</span>
 		{/if}
 	</div>
@@ -376,7 +371,7 @@
 				onkeydown={handleKeyDown}
 				placeholder={isStreaming
 					? 'Agent is responding...'
-					: !apiKey
+					: !settings.apiKey
 						? 'Paste your Anthropic API key (sk-ant-...)...'
 						: 'Type a message...'}
 				disabled={isStreaming}
