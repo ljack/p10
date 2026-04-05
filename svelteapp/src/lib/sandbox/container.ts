@@ -2,6 +2,7 @@ import { WebContainer } from '@webcontainer/api';
 
 let instance: WebContainer | null = null;
 let booting = false;
+let backendProcess: any = null;
 
 export type ContainerStatus = 'idle' | 'booting' | 'ready' | 'error';
 export type ServerStatus = 'stopped' | 'starting' | 'running' | 'error';
@@ -111,8 +112,8 @@ export async function startDevServer(): Promise<void> {
 	setState({ serverStatus: 'starting' });
 
 	// Start backend and frontend as separate processes
-	const backendProc = await instance.spawn('npm', ['run', 'dev:backend']);
-	backendProc.output.pipeTo(
+	backendProcess = await instance.spawn('npm', ['run', 'dev:backend']);
+	backendProcess.output.pipeTo(
 		new WritableStream({
 			write(chunk) {
 				console.log('[container:backend]', chunk);
@@ -134,6 +135,18 @@ export async function startDevServer(): Promise<void> {
 			setState({ serverStatus: 'error', error: `Frontend server exited with code ${code}` });
 		}
 	});
+}
+
+/**
+ * Signal that backend server files changed.
+ * With --watch mode, Node.js auto-restarts. We just wait for it to settle.
+ */
+export async function restartBackend(): Promise<void> {
+	console.log('[container] Backend files changed, --watch will auto-restart...');
+	// node --watch detects the file change and restarts automatically
+	// Just wait for the restart to complete
+	await new Promise((r) => setTimeout(r, 3000));
+	console.log('[container] Backend should be restarted');
 }
 
 /** Write a file inside the container */
@@ -188,7 +201,7 @@ const starterFiles: Record<string, any> = {
 					scripts: {
 						dev: 'node server/index.js & vite --host',
 						'dev:frontend': 'vite --host',
-						'dev:backend': 'node server/index.js'
+						'dev:backend': 'node --watch server/index.js'
 					},
 					dependencies: {
 						react: '^19.0.0',

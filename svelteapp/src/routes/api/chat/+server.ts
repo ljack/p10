@@ -65,6 +65,7 @@ The client will parse these blocks and execute them in the WebContainer. The pre
 - Write clean, modern React code (functional components, hooks)
 - Use JSX files (not TSX)
 - For API endpoints, add routes to server/index.js or create new route files in server/
+- The project uses ES modules ("type": "module"). Use import/export syntax in ALL files, NOT require()
 - The frontend can call the API via fetch('/api/...') — the proxy handles it
 - You can install npm packages using run_command
 - Always explain what you're doing before making changes

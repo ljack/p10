@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import { getInstance } from '$lib/sandbox/container';
+	import { getInstance, restartBackend } from '$lib/sandbox/container';
 	import { initRepo, commitAll, getLog, rollback, isRepoInitialized } from '$lib/git/gitManager';
 	import { subscribe as subscribeContainer, type ContainerState } from '$lib/sandbox/container';
 	import { settings } from '$lib/stores/settings.svelte';
@@ -295,6 +295,16 @@
 			// Now process any tool blocks
 			const hadToolBlocks = /<tool:\w+/.test(fullText);
 			await processToolBlocks(fullText);
+
+			// Restart backend if server/ files were written
+			if (/<tool:write_file\s+path="server\//.test(fullText)) {
+				try {
+					await restartBackend();
+					console.log('[agent] Backend restarted after server file change');
+				} catch (err) {
+					console.warn('[agent] Backend restart failed:', err);
+				}
+			}
 
 			// Auto-commit after tool execution
 			if (hadToolBlocks && gitReady) {
