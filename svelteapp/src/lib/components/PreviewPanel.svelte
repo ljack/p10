@@ -62,7 +62,7 @@
 
 <div class="h-full flex flex-col bg-panel-bg">
 	<!-- Tab bar -->
-	<div class="h-8 flex items-center px-2 border-b border-panel-border shrink-0 gap-1">
+	<div class="h-8 flex items-center px-2 border-b border-panel-border shrink-0 gap-1 relative z-10">
 		<span class="text-accent text-xs font-bold mr-2">PREVIEW</span>
 		{#each tabs as tab}
 			<button
@@ -95,7 +95,7 @@
 				bind:this={iframeEl}
 				src={containerState.serverUrl}
 				title="Web Preview"
-				class="w-full h-full border-none bg-white absolute inset-0 {activeTab === 'web' ? '' : 'invisible'}"
+				class="w-full h-full border-none bg-white absolute inset-0 {activeTab === 'web' ? 'z-0' : 'z-[-1] opacity-0'}"
 				sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
 			></iframe>
 		{/if}
