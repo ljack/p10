@@ -20,11 +20,26 @@ export async function waitForServers(page: Page, timeout = 90_000): Promise<void
  */
 export async function waitForAgentDone(page: Page, timeout = 180_000): Promise<void> {
 	const start = Date.now();
+	let sawStreaming = false;
 	while (Date.now() - start < timeout) {
 		const text = await page.textContent('body') || '';
 		const isStreaming = text.includes('streaming');
-		const hasWritten = text.includes('Written:');
-		if (!isStreaming && hasWritten) return;
+		if (isStreaming) sawStreaming = true;
+
+		// Agent is done when: it was streaming, now it's not, and there's tool output
+		const hasTool = text.includes('write_file') || text.includes('run_command') || text.includes('read_file') || text.includes('write_spec');
+		const isIdle = text.includes('idle') && !isStreaming;
+
+		if (sawStreaming && isIdle && hasTool) return;
+
+		// Also accept if agent responded but no tools (e.g., just text)
+		if (sawStreaming && isIdle && !isStreaming) {
+			// Wait a bit more in case tools are still processing
+			await page.waitForTimeout(3000);
+			const text2 = await page.textContent('body') || '';
+			if (!text2.includes('streaming')) return;
+		}
+
 		await page.waitForTimeout(2000);
 	}
 	throw new Error(`Agent did not finish within ${timeout / 1000}s`);

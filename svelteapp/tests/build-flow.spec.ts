@@ -6,6 +6,9 @@ const apiKey = loadApiKey();
 test.describe('Build Todo App Flow', () => {
 	test.skip(!apiKey, 'Skipped: no API key at /tmp/p10-api-key.txt');
 
+	// This test involves LLM calls and can take several minutes
+	test.setTimeout(300_000); // 5 minutes
+
 	test('full-stack todo app builds and all previews work', async ({ page }) => {
 		// Phase 1: Boot
 		await page.goto('/');
