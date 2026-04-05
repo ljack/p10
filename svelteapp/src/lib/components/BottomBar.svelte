@@ -4,8 +4,9 @@
 	import { getLog, rollback, type GitCommit } from '$lib/git/gitManager';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { specManager } from '$lib/specs/specManager.svelte';
+	import { browserDaemon } from '$lib/daemon/browserDaemon.svelte';
 
-	type BottomTab = 'files' | 'git' | 'specs' | 'tests' | 'settings';
+	type BottomTab = 'files' | 'git' | 'specs' | 'tests' | 'mesh' | 'settings';
 
 	let activeTab = $state<BottomTab | null>(null);
 	let containerState = $state<ContainerState>({
@@ -23,6 +24,7 @@
 		{ id: 'git', label: 'Git Log', icon: '🔀' },
 		{ id: 'specs', label: 'Specs', icon: '📋' },
 		{ id: 'tests', label: 'Tests', icon: '✅' },
+		{ id: 'mesh', label: 'Mesh', icon: '🔗' },
 		{ id: 'settings', label: 'Settings', icon: '⚙️' }
 	];
 
@@ -205,6 +207,23 @@
 				<div class="text-xs text-muted">
 					<div>No tests yet.</div>
 					<div class="mt-2 italic">Testing in MVP 2+</div>
+				</div>
+			{:else if activeTab === 'mesh'}
+				<div class="text-xs space-y-2">
+					<div class="flex items-center gap-2">
+						<span class="{browserDaemon.connected ? 'text-accent' : 'text-muted'}">●</span>
+						<span class="font-bold">Master Daemon</span>
+						<span class="text-muted">{browserDaemon.connected ? 'connected' : 'not connected'}</span>
+					</div>
+					{#if browserDaemon.connected}
+						<div class="pl-4 text-muted">
+							<div>System TLDR: {browserDaemon.masterTldr || 'waiting...'}</div>
+						</div>
+					{:else}
+						<div class="pl-4 text-muted italic">
+							Start the mesh: <code class="bg-background px-1 rounded">./start-mesh.sh</code>
+						</div>
+					{/if}
 				</div>
 			{:else if activeTab === 'settings'}
 				<div class="text-xs space-y-3">
