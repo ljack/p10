@@ -14,6 +14,7 @@
 		stripToolBlocks,
 		handlePostToolExecution
 	} from '$lib/agent/toolExecutor';
+	import { handleCommand } from '$lib/agent/chatCommands';
 
 	interface Message {
 		role: 'user' | 'assistant' | 'tool';
@@ -29,7 +30,7 @@
 		{
 			role: 'assistant',
 			content:
-				'Welcome to P10. What would you like to build?\n\nI support two workflows:\n\n**📋 Spec-driven** (recommended for larger projects):\n• "I want to build a project management tool"\n• "Let\'s plan a Jira clone"\n\n**⚡ Quick build** (for small apps):\n• "Build a todo app"\n• "Create a counter with a reset button"',
+				'Welcome to P10. What would you like to build?\n\n**📋 Spec-driven** (larger projects):\n• "I want to build a project management tool"\n\n**⚡ Quick build** (small apps):\n• "Build a todo app with API backend"\n\nType `/help` for commands, `/mesh` for daemon status.',
 			timestamp: new Date()
 		}
 	]);
@@ -142,6 +143,21 @@
 	async function handleSubmit() {
 		const trimmed = input.trim();
 		if (!trimmed || isStreaming) return;
+
+		// Handle chat commands
+		if (trimmed.startsWith('/')) {
+			messages = [...messages, { role: 'user', content: trimmed, timestamp: new Date() }];
+			input = '';
+			const result = await handleCommand(trimmed);
+			if (result.handled) {
+				if (result.response === '__CLEAR__') {
+					messages = [{ role: 'assistant', content: 'Chat cleared.', timestamp: new Date() }];
+				} else {
+					messages = [...messages, { role: 'assistant', content: result.response || '', timestamp: new Date() }];
+				}
+				return;
+			}
+		}
 
 		// Handle API key input
 		if (!settings.apiKey) {
