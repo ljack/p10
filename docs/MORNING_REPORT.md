@@ -157,9 +157,23 @@ npm run test:unit                             # 24 unit tests
 npm run test:e2e                              # 17 E2E tests
 ```
 
+### What was added after initial report
+- ✅ Model router with task classification and failover for Pi Daemon
+- ✅ Mesh panel in bottom bar
+- ✅ Chat commands (`/help`, `/mesh`, `/debug`, `/task`, `/query`, `/clear`)
+- ✅ Keyboard shortcuts (Cmd+K, Cmd+Shift+P)
+- ✅ Extracted `formatContent` module with italic/headers/lists support
+- ✅ API Explorer discovery error display
+- ✅ README with quick start guide
+- ✅ Build-flow E2E test
+- ✅ Security guard unit tests (8 tests)
+- ✅ Tool executor unit tests (5 tests)
+- ✅ formatContent unit tests (11 tests)
+- ✅ Total: **41 unit tests + 17 E2E tests + 1 build-flow test = 59 tests**
+
 ### Next Steps
-- [ ] Wire Pi Daemon to receive and execute tasks from Browser Daemon auto-fix
-- [ ] Add model routing with failover in Pi Daemon
+- [ ] Run build-flow test with API key to validate full agent → build → preview pipeline
 - [ ] MVP 3: Multi-agent orchestration
 - [ ] MVP 6: API-first development (OpenAPI)
 - [ ] Session persistence for daemons across restarts
+- [ ] Pi Daemon model routing integration test
