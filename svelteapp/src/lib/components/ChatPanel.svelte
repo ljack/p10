@@ -7,6 +7,7 @@
 	import { agentState } from '$lib/stores/agentState.svelte';
 	import { specManager } from '$lib/specs/specManager.svelte';
 	import { errorStore } from '$lib/stores/errors.svelte';
+	import { apiExplorer } from '$lib/stores/apiExplorer.svelte';
 
 	interface Message {
 		role: 'user' | 'assistant' | 'tool';
@@ -335,6 +336,8 @@
 				try {
 					await restartBackend();
 					console.log('[agent] Backend restarted after server file change');
+					// Trigger API Explorer to re-discover routes
+					setTimeout(() => apiExplorer.triggerRefresh(), 3000);
 				} catch (err) {
 					console.warn('[agent] Backend restart failed:', err);
 				}

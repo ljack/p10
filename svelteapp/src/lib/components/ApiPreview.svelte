@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { subscribe, type ContainerState, type ServerInfo } from '$lib/sandbox/container';
 	import { onMount } from 'svelte';
+	import { apiExplorer } from '$lib/stores/apiExplorer.svelte';
 
 	let containerState = $state<ContainerState>({
 		status: 'idle',
@@ -35,6 +36,13 @@
 	}));
 
 	let backendServer = $derived(containerState.servers.find((s) => s.type === 'backend'));
+
+	// Re-discover when ChatPanel signals a server file was written
+	$effect(() => {
+		if (apiExplorer.refreshCounter > 0) {
+			discoverRoutes();
+		}
+	});
 
 	const methods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
 	const methodColors: Record<string, string> = {
