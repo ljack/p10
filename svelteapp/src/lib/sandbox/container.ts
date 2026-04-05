@@ -333,6 +333,18 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Route discovery — lists all registered API endpoints
+app.get('/api/_routes', (req, res) => {
+  const routes = [];
+  app._router.stack.forEach((middleware) => {
+    if (middleware.route) {
+      const methods = Object.keys(middleware.route.methods).map(m => m.toUpperCase());
+      routes.push({ methods, path: middleware.route.path });
+    }
+  });
+  res.json(routes.filter(r => r.path !== '/api/_routes'));
+});
+
 // Example endpoint — agent will add more
 app.get('/api', (req, res) => {
   res.json({ message: 'P10 API is running. Add endpoints by chatting with the agent.' });

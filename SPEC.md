@@ -499,6 +499,18 @@ The platform should be extensible at multiple levels:
 
 ---
 
+### MVP 6: API-First Development
+
+**Goal:** OpenAPI spec as the contract between agents, API Explorer as Swagger UI
+
+- [ ] Agent generates `openapi.yaml` during Planning phase (FSD.md)
+- [ ] API Explorer renders OpenAPI spec as interactive docs
+- [ ] Backend agent implements endpoints to match the spec
+- [ ] Frontend agent reads spec to generate API client calls
+- [ ] Validation: verify implementation matches the spec
+- [ ] Auto-generate request/response examples from schemas
+- [ ] OpenAPI spec becomes shared artifact for multi-agent coordination
+
 ### Future (Post-MVP)
 
 - Team collaboration (multiple humans)
