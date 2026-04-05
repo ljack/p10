@@ -2,7 +2,33 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { streamText, convertToModelMessages } from 'ai';
 import type { RequestHandler } from './$types';
 
-const SYSTEM_PROMPT = `You are P10, an AI coding assistant that builds full-stack web applications.
+const SYSTEM_PROMPT = `You are P10, an AI-powered software development platform that builds full-stack web applications.
+
+You support a spec-driven development workflow with these phases:
+1. **Discovery** — Explore the idea, ask questions, generate IDEA.md
+2. **Planning** — Create PRD.md, FSD.md, and PLAN.md from the idea
+3. **Development** — Build the application from the specs
+4. **Testing** — Verify the application works
+
+## Spec-Driven Workflow:
+- When a user describes a project idea, FIRST generate specs before coding
+- Use <tool:write_spec> to create/update spec documents
+- Specs guide the implementation and serve as the contract between human and agent
+- Ask clarifying questions during Discovery before jumping to Planning
+- In Planning, generate comprehensive specs that a developer (or agent) could build from
+- In Development, reference the specs and implement task by task
+
+To write/update a spec document:
+<tool:write_spec filename="IDEA.md">
+spec content here
+</tool:write_spec>
+
+Supported spec files: IDEA.md, PRD.md, FSD.md, PLAN.md
+
+When the user says things like "let's plan", "what should we build", "I have an idea" — enter Discovery/Planning mode.
+When the user says "build it", "start coding", "implement" — enter Development mode.
+
+## Development Tools:
 
 You have access to a WebContainer — a browser-based Node.js environment running:
 - **Frontend**: Vite + React (port 5173)
@@ -47,13 +73,18 @@ The client will parse these blocks and execute them in the WebContainer. The pre
 - Output one write_file block per file
 - For full-stack features, write the API endpoints first, then the frontend UI
 - NEVER run "npm run dev", "npm start", or "node server" — the dev servers are ALREADY running and will auto-reload
-- Frontend changes hot-reload automatically. Backend (server/) changes take effect on next request since Express is already running in memory`;
+- Frontend changes hot-reload automatically. Backend (server/) changes take effect on next request since Express is already running in memory
+
+## Spec Context:
+The following specs have been created for this project (if any):
+{SPEC_CONTEXT}`;
 
 export const POST: RequestHandler = async ({ request }) => {
 	const body = await request.json();
 	const apiKey = body.apiKey as string;
 	const model = (body.model as string) || 'claude-sonnet-4-20250514';
 	const rawMessages = body.messages as Array<{ role: string; content: string }>;
+	const specContext = (body.specContext as string) || '(no specs created yet)';
 
 	console.log('[api/chat] POST received:', rawMessages.length, 'messages, apiKey:', apiKey ? 'set' : 'missing');
 
@@ -73,9 +104,11 @@ export const POST: RequestHandler = async ({ request }) => {
 		}))
 	);
 
+	const systemWithSpecs = SYSTEM_PROMPT.replace('{SPEC_CONTEXT}', specContext);
+
 	const result = streamText({
 		model: anthropic(model),
-		system: SYSTEM_PROMPT,
+		system: systemWithSpecs,
 		messages: modelMessages
 	});
 

@@ -5,6 +5,7 @@
 	import { subscribe as subscribeContainer, type ContainerState } from '$lib/sandbox/container';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { agentState } from '$lib/stores/agentState.svelte';
+	import { specManager } from '$lib/specs/specManager.svelte';
 
 	interface Message {
 		role: 'user' | 'assistant' | 'tool';
@@ -20,7 +21,7 @@
 		{
 			role: 'assistant',
 			content:
-				'Welcome to P10. What would you like to build?\n\nI can create React apps in the live preview. Try:\n• "Build a todo app"\n• "Add a dark theme"\n• "Create a counter with a reset button"',
+				'Welcome to P10. What would you like to build?\n\nI support two workflows:\n\n**📋 Spec-driven** (recommended for larger projects):\n• "I want to build a project management tool"\n• "Let\'s plan a Jira clone"\n\n**⚡ Quick build** (for small apps):\n• "Build a todo app"\n• "Create a counter with a reset button"',
 			timestamp: new Date()
 		}
 	]);
@@ -83,6 +84,15 @@
 
 		try {
 			switch (name) {
+				case 'write_spec': {
+					const filename = attrs.filename;
+					specManager.updateSpec(filename, body, 'draft');
+					// Also parse tasks if it's PLAN.md
+					if (filename === 'PLAN.md') {
+						specManager.parseTasks(body);
+					}
+					return `📋 Spec updated: ${filename} (${body.length} chars)`;
+				}
 				case 'write_file': {
 					const path = attrs.path;
 					const dir = path.split('/').slice(0, -1).join('/');
@@ -231,7 +241,12 @@
 			const response = await fetch('/api/chat', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ messages: apiMessages, apiKey: settings.apiKey, model: settings.model })
+				body: JSON.stringify({
+						messages: apiMessages,
+						apiKey: settings.apiKey,
+						model: settings.model,
+						specContext: specManager.getSpecContext()
+					})
 			});
 
 			if (!response.ok) {

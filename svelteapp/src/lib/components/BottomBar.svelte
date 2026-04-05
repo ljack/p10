@@ -3,6 +3,7 @@
 	import { getInstance, subscribe, type ContainerState } from '$lib/sandbox/container';
 	import { getLog, rollback, type GitCommit } from '$lib/git/gitManager';
 	import { settings } from '$lib/stores/settings.svelte';
+	import { specManager } from '$lib/specs/specManager.svelte';
 
 	type BottomTab = 'files' | 'git' | 'specs' | 'tests' | 'settings';
 
@@ -162,11 +163,43 @@
 					{/if}
 				</div>
 			{:else if activeTab === 'specs'}
-				<div class="text-xs text-muted space-y-1">
-					<div>📋 IDEA.md — <span class="italic">not created yet</span></div>
-					<div>📋 PRD.md — <span class="italic">not created yet</span></div>
-					<div>📋 PLAN.md — <span class="italic">not created yet</span></div>
-					<div class="mt-2 italic">Spec workflow in MVP 2</div>
+				<div class="text-xs space-y-2">
+					{#each specManager.specs as spec}
+						<div class="flex items-center gap-2 py-1 px-1 rounded hover:bg-panel-border/30 group">
+							<span class="{spec.status === 'approved' ? 'text-accent' : spec.status === 'draft' ? 'text-warning' : 'text-muted'}">
+								{spec.status === 'approved' ? '✅' : spec.status === 'draft' ? '📝' : spec.status === 'review' ? '👀' : '📋'}
+							</span>
+							<span class="text-foreground font-bold">{spec.filename}</span>
+							<span class="text-muted">{spec.status}</span>
+							{#if spec.content}
+								<span class="text-muted">({spec.content.length} chars)</span>
+							{/if}
+							<div class="flex-1"></div>
+							{#if spec.status === 'draft' || spec.status === 'review'}
+								<button
+									onclick={() => specManager.approveSpec(spec.filename)}
+									class="text-accent opacity-0 group-hover:opacity-100 transition-opacity"
+									title="Approve this spec"
+								>
+									✓ approve
+								</button>
+							{/if}
+						</div>
+					{/each}
+
+					{#if specManager.tasks.length > 0}
+						<div class="border-t border-panel-border pt-2 mt-2">
+							<div class="text-muted font-bold mb-1">Tasks ({specManager.tasks.filter(t => t.status === 'done').length}/{specManager.tasks.length})</div>
+							{#each specManager.tasks as task}
+								<div class="flex items-center gap-2 py-0.5">
+									<span class="{task.status === 'done' ? 'text-accent' : task.status === 'in-progress' ? 'text-warning' : 'text-muted'}">
+										{task.status === 'done' ? '✅' : task.status === 'in-progress' ? '🔄' : task.status === 'blocked' ? '🚫' : '○'}
+									</span>
+									<span class="text-foreground {task.status === 'done' ? 'line-through opacity-60' : ''}">{task.title}</span>
+								</div>
+							{/each}
+						</div>
+					{/if}
 				</div>
 			{:else if activeTab === 'tests'}
 				<div class="text-xs text-muted">
