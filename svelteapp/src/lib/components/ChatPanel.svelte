@@ -1,158 +1,22 @@
 <script lang="ts">
 	import { tick } from 'svelte';
+	import { getInstance } from '$lib/sandbox/container';
 
 	interface Message {
-		role: 'user' | 'assistant';
+		role: 'user' | 'assistant' | 'tool';
 		content: string;
 		timestamp: Date;
 		isStreaming?: boolean;
-	}
-
-	const simulatedResponses: Record<string, string> = {
-		todo: `Great choice! I'll build a todo app for you. Let me plan the architecture:
-
-**Backend (API)**
-- \`POST /api/todos\` — Create a new todo
-- \`GET /api/todos\` — List all todos
-- \`PATCH /api/todos/:id\` — Toggle complete / update text
-- \`DELETE /api/todos/:id\` — Delete a todo
-
-**Frontend (React)**
-- \`TodoList\` component — renders the list with filters
-- \`TodoItem\` component — single todo with checkbox, edit, delete
-- \`AddTodo\` component — input field with add button
-- \`FilterBar\` component — All / Active / Completed
-
-**Data Model**
-\`\`\`typescript
-interface Todo {
-  id: string;
-  text: string;
-  completed: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}
-\`\`\`
-
-I'll start with the backend API using Express, then build the React frontend. Want me to proceed?`,
-
-		auth: `I'll implement a full authentication flow. Here's the plan:
-
-**Endpoints**
-- \`POST /api/auth/register\` — Create account (email + password)
-- \`POST /api/auth/login\` — Login, returns JWT + refresh token
-- \`POST /api/auth/refresh\` — Refresh expired access token
-- \`POST /api/auth/logout\` — Invalidate refresh token
-- \`GET /api/auth/me\` — Get current user profile
-
-**Security**
-- Passwords hashed with bcrypt (12 rounds)
-- JWT access tokens (15min expiry)
-- HTTP-only refresh tokens (7day expiry)
-- Rate limiting on login endpoint
-
-**Frontend**
-- Login page with email/password form
-- Register page with validation
-- Protected route wrapper component
-- Auth context with token management
-
-Setting up the auth module now...
-
-📁 Creating \`src/routes/auth.ts\`
-📁 Creating \`src/middleware/authenticate.ts\`
-📁 Creating \`src/models/User.ts\`
-
-✅ Auth endpoints created and tested.`,
-
-		database: `Let me set up the database layer. I'll use SQLite for development with an abstraction that can swap to PostgreSQL later.
-
-**Schema**
-\`\`\`sql
-CREATE TABLE users (
-  id TEXT PRIMARY KEY,
-  email TEXT UNIQUE NOT NULL,
-  password_hash TEXT NOT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE todos (
-  id TEXT PRIMARY KEY,
-  user_id TEXT REFERENCES users(id),
-  text TEXT NOT NULL,
-  completed BOOLEAN DEFAULT FALSE,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-\`\`\`
-
-**Files**
-📁 \`src/db/schema.ts\` — Table definitions
-📁 \`src/db/migrate.ts\` — Migration runner
-📁 \`src/db/connection.ts\` — Database connection pool
-
-Running migrations... ✅
-Seeding test data... ✅
-
-Database is ready. 3 sample todos created for testing.`,
-
-		test: `Running the test suite now...
-
-\`\`\`
- PASS  src/routes/auth.test.ts
-  ✅ POST /api/auth/register — creates user (45ms)
-  ✅ POST /api/auth/register — rejects duplicate email (12ms)
-  ✅ POST /api/auth/login — returns JWT token (38ms)
-  ✅ POST /api/auth/login — rejects wrong password (15ms)
-  ✅ GET /api/auth/me — returns user profile (22ms)
-  ✅ GET /api/auth/me — rejects invalid token (8ms)
-
- PASS  src/routes/todos.test.ts
-  ✅ GET /api/todos — returns empty list (18ms)
-  ✅ POST /api/todos — creates todo (25ms)
-  ✅ PATCH /api/todos/:id — toggles completed (20ms)
-  ✅ DELETE /api/todos/:id — removes todo (15ms)
-  ✅ GET /api/todos — filters by completed status (22ms)
-
- PASS  src/components/TodoList.test.tsx
-  ✅ renders todo items (52ms)
-  ✅ toggles todo on click (35ms)
-  ✅ adds new todo (40ms)
-  ✅ deletes todo (28ms)
-
-Tests:  15 passed, 0 failed
-Time:   1.24s
-Coverage: 87% statements, 92% branches
-\`\`\`
-
-All tests passing! Coverage is at 87%. Want me to add more edge case tests?`
-	};
-
-	const defaultResponse = `I understand. Let me think about how to approach this...
-
-I'll break this down into smaller tasks:
-
-1. **Analyze** the requirements
-2. **Design** the data model and API
-3. **Implement** backend endpoints
-4. **Build** the frontend UI
-5. **Test** everything end-to-end
-
-Which part would you like me to start with? Or should I go through them all sequentially?`;
-
-	function getSimulatedResponse(input: string): string {
-		const lower = input.toLowerCase();
-		for (const [keyword, response] of Object.entries(simulatedResponses)) {
-			if (lower.includes(keyword)) return response;
-		}
-		return defaultResponse;
+		toolName?: string;
+		toolPath?: string;
+		toolResult?: string;
 	}
 
 	let messages = $state<Message[]>([
 		{
 			role: 'assistant',
 			content:
-				"Welcome to P10. What would you like to build?\n\nTry asking me to:\n• Build a **todo app**\n• Set up **auth**entication\n• Create a **database** schema\n• Run **test**s",
+				'Welcome to P10. What would you like to build?\n\nI can create React apps in the live preview. Try:\n• "Build a todo app"\n• "Add a dark theme"\n• "Create a counter with a reset button"',
 			timestamp: new Date()
 		}
 	]);
@@ -160,10 +24,17 @@ Which part would you like me to start with? Or should I go through them all sequ
 	let input = $state('');
 	let isStreaming = $state(false);
 	let userHasScrolled = $state(false);
+	let apiKey = $state('');
 
-	let messagesContainer: HTMLDivElement;
-	let messagesEnd: HTMLDivElement;
-	let inputEl: HTMLTextAreaElement;
+	let messagesContainer: HTMLDivElement | undefined = $state();
+	let messagesEnd: HTMLDivElement | undefined = $state();
+
+	// Load API key from localStorage
+	$effect(() => {
+		if (typeof window !== 'undefined') {
+			apiKey = localStorage.getItem('p10_api_key') || '';
+		}
+	});
 
 	function scrollToBottom() {
 		if (!userHasScrolled) {
@@ -173,64 +44,214 @@ Which part would you like me to start with? Or should I go through them all sequ
 
 	function handleScroll() {
 		if (!messagesContainer) return;
-		const distFromBottom =
+		const dist =
 			messagesContainer.scrollHeight -
 			messagesContainer.scrollTop -
 			messagesContainer.clientHeight;
-		userHasScrolled = distFromBottom > 40;
+		userHasScrolled = dist > 40;
 	}
 
-	function streamResponse(fullText: string) {
-		isStreaming = true;
+	/** Execute a tool block against the WebContainer */
+	async function executeTool(
+		name: string,
+		attrs: Record<string, string>,
+		body: string
+	): Promise<string> {
+		const container = getInstance();
+		if (!container) return 'Error: WebContainer not ready';
 
-		const newMsg: Message = {
-			role: 'assistant',
-			content: '',
-			timestamp: new Date(),
-			isStreaming: true
-		};
-		messages = [...messages, newMsg];
+		try {
+			switch (name) {
+				case 'write_file': {
+					const path = attrs.path;
+					const dir = path.split('/').slice(0, -1).join('/');
+					if (dir) await container.fs.mkdir(dir, { recursive: true });
+					await container.fs.writeFile(path, body);
+					return `✅ Written: ${path} (${body.length} bytes)`;
+				}
+				case 'read_file': {
+					const content = await container.fs.readFile(attrs.path, 'utf-8');
+					return content;
+				}
+				case 'list_files': {
+					const entries = await container.fs.readdir(attrs.path || '.', {
+						withFileTypes: true
+					});
+					return entries
+						.filter((e) => e.name !== 'node_modules')
+						.map((e) => (e.isDirectory() ? e.name + '/' : e.name))
+						.join('\n');
+				}
+				case 'run_command': {
+					const parts = attrs.command.split(' ');
+					const proc = await container.spawn(parts[0], parts.slice(1));
+					let output = '';
+					proc.output.pipeTo(new WritableStream({ write(c) { output += c; } }));
+					const code = await proc.exit;
+					return `Exit ${code}\n${output}`;
+				}
+				default:
+					return `Unknown tool: ${name}`;
+			}
+		} catch (err) {
+			return `Error: ${err instanceof Error ? err.message : String(err)}`;
+		}
+	}
 
-		let charIndex = 0;
-		const speed = 12;
+	/** Parse tool blocks from streamed text and execute them */
+	async function processToolBlocks(fullText: string): Promise<void> {
+		// Match <tool:name attr="val">body</tool:name> and <tool:name attr="val" />
+		const toolRegex =
+			/<tool:(\w+)((?:\s+\w+="[^"]*")*)(?:\s*\/>|>([\s\S]*?)<\/tool:\1>)/g;
 
-		const interval = setInterval(() => {
-			const chunkSize = Math.floor(Math.random() * 4) + 1;
-			charIndex = Math.min(charIndex + chunkSize, fullText.length);
+		let match;
+		while ((match = toolRegex.exec(fullText)) !== null) {
+			const toolName = match[1];
+			const attrsStr = match[2];
+			const body = match[3] || '';
 
+			// Parse attributes
+			const attrs: Record<string, string> = {};
+			const attrRegex = /(\w+)="([^"]*)"/g;
+			let attrMatch;
+			while ((attrMatch = attrRegex.exec(attrsStr)) !== null) {
+				attrs[attrMatch[1]] = attrMatch[2];
+			}
+
+			// Add tool message
+			messages = [
+				...messages,
+				{
+					role: 'tool',
+					content: '',
+					timestamp: new Date(),
+					toolName,
+					toolPath: attrs.path || attrs.command || ''
+				}
+			];
+
+			await tick();
+			scrollToBottom();
+
+			// Execute
+			const result = await executeTool(toolName, attrs, body);
+
+			// Update tool message with result
 			messages = messages.map((m, i) =>
-				i === messages.length - 1 ? { ...m, content: fullText.slice(0, charIndex) } : m
+				i === messages.length - 1 ? { ...m, toolResult: result } : m
 			);
 
-			tick().then(scrollToBottom);
-
-			if (charIndex >= fullText.length) {
-				clearInterval(interval);
-				messages = messages.map((m, i) =>
-					i === messages.length - 1 ? { ...m, isStreaming: false } : m
-				);
-				isStreaming = false;
-				userHasScrolled = false;
-			}
-		}, speed);
+			await tick();
+			scrollToBottom();
+		}
 	}
 
-	function handleSubmit() {
+	async function handleSubmit() {
 		const trimmed = input.trim();
 		if (!trimmed || isStreaming) return;
 
+		// Handle API key input
+		if (!apiKey) {
+			if (trimmed.startsWith('sk-ant-')) {
+				apiKey = trimmed;
+				localStorage.setItem('p10_api_key', trimmed);
+				messages = [
+					...messages,
+					{
+						role: 'assistant',
+						content: '✅ API key saved. Now tell me what you want to build!',
+						timestamp: new Date()
+					}
+				];
+				input = '';
+				return;
+			}
+			messages = [
+				...messages,
+				{
+					role: 'assistant',
+					content:
+						'⚠️ Please paste your Anthropic API key first (starts with `sk-ant-...`)',
+					timestamp: new Date()
+				}
+			];
+			return;
+		}
+
+		// Add user message
 		messages = [...messages, { role: 'user', content: trimmed, timestamp: new Date() }];
 		input = '';
+		isStreaming = true;
 
-		tick().then(scrollToBottom);
+		await tick();
+		scrollToBottom();
 
-		setTimeout(
-			() => {
-				const response = getSimulatedResponse(trimmed);
-				streamResponse(response);
-			},
-			300 + Math.random() * 500
-		);
+		try {
+			// Build conversation history (skip tool messages)
+			const apiMessages = messages
+				.filter((m) => m.role === 'user' || m.role === 'assistant')
+				.map((m) => ({ role: m.role, content: m.content }));
+
+			const response = await fetch('/api/chat', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ messages: apiMessages, apiKey })
+			});
+
+			if (!response.ok) {
+				throw new Error(`API error: ${response.status} ${await response.text()}`);
+			}
+
+			const reader = response.body?.getReader();
+			if (!reader) throw new Error('No response body');
+
+			// Add streaming assistant message
+			messages = [
+				...messages,
+				{ role: 'assistant', content: '', timestamp: new Date(), isStreaming: true }
+			];
+
+			const decoder = new TextDecoder();
+			let fullText = '';
+
+			while (true) {
+				const { done, value } = await reader.read();
+				if (done) break;
+
+				const chunk = decoder.decode(value, { stream: true });
+				fullText += chunk;
+
+				// Update the streaming message (strip tool blocks for display)
+				const displayText = fullText.replace(
+					/<tool:\w+(?:\s+\w+="[^"]*")*(?:\s*\/>|>[\s\S]*?<\/tool:\w+>)/g,
+					''
+				).trim();
+
+				messages = messages.map((m, i) =>
+					i === messages.length - 1 ? { ...m, content: displayText } : m
+				);
+
+				await tick();
+				scrollToBottom();
+			}
+
+			// Mark streaming as done
+			messages = messages.map((m, i) =>
+				i === messages.length - 1 ? { ...m, isStreaming: false } : m
+			);
+
+			// Now process any tool blocks
+			await processToolBlocks(fullText);
+		} catch (err) {
+			const errorMsg = err instanceof Error ? err.message : String(err);
+			messages = [
+				...messages,
+				{ role: 'assistant', content: `❌ Error: ${errorMsg}`, timestamp: new Date() }
+			];
+		} finally {
+			isStreaming = false;
+			userHasScrolled = false;
+		}
 	}
 
 	function handleKeyDown(e: KeyboardEvent) {
@@ -240,7 +261,6 @@ Which part would you like me to start with? Or should I go through them all sequ
 		}
 	}
 
-	// Format timestamp
 	function formatTime(d: Date): string {
 		return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 	}
@@ -253,6 +273,9 @@ Which part would you like me to start with? Or should I go through them all sequ
 		{#if isStreaming}
 			<span class="ml-2 text-warning text-xs animate-pulse">● streaming</span>
 		{/if}
+		{#if !apiKey}
+			<span class="ml-2 text-error text-xs">● no API key</span>
+		{/if}
 	</div>
 
 	<!-- Messages -->
@@ -262,23 +285,45 @@ Which part would you like me to start with? Or should I go through them all sequ
 		class="flex-1 overflow-y-auto p-3 space-y-4 min-h-0"
 	>
 		{#each messages as msg}
-			<div class="text-sm leading-relaxed">
-				<!-- Role label -->
-				<div
-					class="text-xs font-bold mb-1 {msg.role === 'user' ? 'text-foreground' : 'text-accent'}"
-				>
-					{msg.role === 'user' ? 'you' : 'agent'}
-					<span class="text-muted font-normal ml-2">{formatTime(msg.timestamp)}</span>
-				</div>
-				<!-- Content -->
-				<div class="pl-2 border-l-2 border-panel-border whitespace-pre-wrap">
-					{@html formatContent(msg.content)}
-					{#if msg.isStreaming}
-						<span class="inline-block w-1.5 h-4 bg-accent animate-pulse ml-0.5 align-middle"
-						></span>
+			{#if msg.role === 'tool'}
+				<div class="text-xs border border-panel-border rounded bg-background p-2 space-y-1">
+					<div class="text-muted font-bold">
+						🔧 {msg.toolName}
+						{#if msg.toolPath}
+							<span class="text-accent font-normal ml-1">{msg.toolPath}</span>
+						{/if}
+					</div>
+					{#if msg.toolResult}
+						<pre
+							class="text-muted text-xs max-h-32 overflow-y-auto whitespace-pre-wrap"
+							>{msg.toolResult.length > 500
+								? msg.toolResult.slice(0, 500) + '...'
+								: msg.toolResult}</pre
+						>
+					{:else}
+						<span class="text-muted animate-pulse">executing...</span>
 					{/if}
 				</div>
-			</div>
+			{:else}
+				<div class="text-sm leading-relaxed">
+					<div
+						class="text-xs font-bold mb-1 {msg.role === 'user'
+							? 'text-foreground'
+							: 'text-accent'}"
+					>
+						{msg.role === 'user' ? 'you' : 'agent'}
+						<span class="text-muted font-normal ml-2">{formatTime(msg.timestamp)}</span>
+					</div>
+					<div class="pl-2 border-l-2 border-panel-border whitespace-pre-wrap">
+						{@html formatContent(msg.content)}
+						{#if msg.isStreaming}
+							<span
+								class="inline-block w-1.5 h-4 bg-accent animate-pulse ml-0.5 align-middle"
+							></span>
+						{/if}
+					</div>
+				</div>
+			{/if}
 		{/each}
 		<div bind:this={messagesEnd}></div>
 	</div>
@@ -288,10 +333,13 @@ Which part would you like me to start with? Or should I go through them all sequ
 		<div class="flex items-end gap-2">
 			<span class="text-accent text-sm font-bold pb-1">❯</span>
 			<textarea
-				bind:this={inputEl}
 				bind:value={input}
 				onkeydown={handleKeyDown}
-				placeholder={isStreaming ? 'Agent is responding...' : 'Type a message...'}
+				placeholder={isStreaming
+					? 'Agent is responding...'
+					: !apiKey
+						? 'Paste your Anthropic API key (sk-ant-...)...'
+						: 'Type a message...'}
 				disabled={isStreaming}
 				rows={1}
 				class="flex-1 bg-transparent text-foreground text-sm resize-none outline-none placeholder:text-muted disabled:opacity-50"
@@ -309,15 +357,11 @@ Which part would you like me to start with? Or should I go through them all sequ
 </div>
 
 <script lang="ts" module>
-	/** Simple markdown-ish formatter for terminal feel */
 	export function formatContent(content: string): string {
-		// Escape HTML first
-		let html = content
-			.replace(/&/g, '&amp;')
-			.replace(/</g, '&lt;')
-			.replace(/>/g, '&gt;');
+		if (!content) return '';
+		let html = content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-		// Code blocks ```lang\ncode\n```
+		// Code blocks
 		html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_match, lang, code) => {
 			const langLabel = lang
 				? `<div class="text-xs text-muted px-3 py-1 border-b border-panel-border">${lang}</div>`
@@ -325,13 +369,13 @@ Which part would you like me to start with? Or should I go through them all sequ
 			return `<div class="my-2 rounded bg-background border border-panel-border overflow-x-auto">${langLabel}<pre class="text-xs p-3 text-foreground"><code>${code}</code></pre></div>`;
 		});
 
-		// Inline code `text`
+		// Inline code
 		html = html.replace(
 			/`([^`]+)`/g,
 			'<code class="bg-background text-accent px-1 py-0.5 rounded text-xs">$1</code>'
 		);
 
-		// Bold **text**
+		// Bold
 		html = html.replace(
 			/\*\*([^*]+)\*\*/g,
 			'<strong class="text-foreground font-bold">$1</strong>'
