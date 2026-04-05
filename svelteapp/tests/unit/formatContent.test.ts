@@ -1,30 +1,5 @@
 import { describe, it, expect } from 'vitest';
-
-// Import the formatContent function from the ChatPanel module script
-// Since it's in a .svelte file's module context, we replicate it here
-function formatContent(content: string): string {
-	if (!content) return '';
-	let html = content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-	html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_match, lang, code) => {
-		const langLabel = lang
-			? `<div class="text-xs text-muted px-3 py-1 border-b border-panel-border">${lang}</div>`
-			: '';
-		return `<div class="my-2 rounded bg-background border border-panel-border overflow-x-auto">${langLabel}<pre class="text-xs p-3 text-foreground"><code>${code}</code></pre></div>`;
-	});
-
-	html = html.replace(
-		/`([^`]+)`/g,
-		'<code class="bg-background text-accent px-1 py-0.5 rounded text-xs">$1</code>'
-	);
-
-	html = html.replace(
-		/\*\*([^*]+)\*\*/g,
-		'<strong class="text-foreground font-bold">$1</strong>'
-	);
-
-	return html;
-}
+import { formatContent } from '../../src/lib/agent/formatContent';
 
 describe('formatContent', () => {
 	it('returns empty string for empty input', () => {
@@ -64,5 +39,29 @@ describe('formatContent', () => {
 		const result = formatContent('**bold** and `code` together');
 		expect(result).toContain('<strong');
 		expect(result).toContain('<code');
+	});
+
+	it('renders italic text', () => {
+		const result = formatContent('this is *italic*');
+		expect(result).toContain('<em');
+		expect(result).toContain('italic');
+	});
+
+	it('renders headers', () => {
+		const result = formatContent('## My Header');
+		expect(result).toContain('My Header');
+		expect(result).toContain('font-bold');
+	});
+
+	it('renders bullet lists', () => {
+		const result = formatContent('- Item one\n- Item two');
+		expect(result).toContain('• Item one');
+		expect(result).toContain('• Item two');
+	});
+
+	it('renders numbered lists', () => {
+		const result = formatContent('1. First\n2. Second');
+		expect(result).toContain('1. First');
+		expect(result).toContain('2. Second');
 	});
 });

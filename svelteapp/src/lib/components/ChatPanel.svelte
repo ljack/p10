@@ -15,6 +15,7 @@
 		handlePostToolExecution
 	} from '$lib/agent/toolExecutor';
 	import { handleCommand } from '$lib/agent/chatCommands';
+	import { formatContent } from '$lib/agent/formatContent';
 
 	interface Message {
 		role: 'user' | 'assistant' | 'tool';
@@ -424,31 +425,4 @@
 	</div>
 </div>
 
-<script lang="ts" module>
-	export function formatContent(content: string): string {
-		if (!content) return '';
-		let html = content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-		// Code blocks
-		html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_match, lang, code) => {
-			const langLabel = lang
-				? `<div class="text-xs text-muted px-3 py-1 border-b border-panel-border">${lang}</div>`
-				: '';
-			return `<div class="my-2 rounded bg-background border border-panel-border overflow-x-auto">${langLabel}<pre class="text-xs p-3 text-foreground"><code>${code}</code></pre></div>`;
-		});
-
-		// Inline code
-		html = html.replace(
-			/`([^`]+)`/g,
-			'<code class="bg-background text-accent px-1 py-0.5 rounded text-xs">$1</code>'
-		);
-
-		// Bold
-		html = html.replace(
-			/\*\*([^*]+)\*\*/g,
-			'<strong class="text-foreground font-bold">$1</strong>'
-		);
-
-		return html;
-	}
-</script>
