@@ -6,6 +6,7 @@
 	import { settings } from '$lib/stores/settings.svelte';
 	import { agentState } from '$lib/stores/agentState.svelte';
 	import { specManager } from '$lib/specs/specManager.svelte';
+	import { errorStore } from '$lib/stores/errors.svelte';
 
 	interface Message {
 		role: 'user' | 'assistant' | 'tool';
@@ -250,7 +251,8 @@
 						messages: apiMessages,
 						apiKey: settings.apiKey,
 						model: settings.model,
-						specContext: specManager.getSpecContext()
+						specContext: specManager.getSpecContext(),
+						errorContext: errorStore.getContext()
 					})
 			});
 
@@ -334,6 +336,7 @@
 			isStreaming = false;
 			userHasScrolled = false;
 			agentState.setStatus('idle');
+			errorStore.clear();
 		}
 	}
 

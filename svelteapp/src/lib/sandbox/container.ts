@@ -1,5 +1,7 @@
 import { WebContainer } from '@webcontainer/api';
 
+import { errorStore } from '$lib/stores/errors.svelte';
+
 let instance: WebContainer | null = null;
 let booting = false;
 let backendProcess: any = null;
@@ -105,6 +107,30 @@ export async function boot(): Promise<WebContainer> {
 	}
 }
 
+/** Capture error output from container processes */
+function captureErrors(chunk: string, source: string) {
+	// Strip ANSI escape codes
+	const clean = chunk.replace(/\x1b\[[0-9;]*m/g, '').trim();
+	if (!clean) return;
+
+	// Detect error patterns
+	const isError =
+		clean.includes('Error:') ||
+		clean.includes('error:') ||
+		clean.includes('SyntaxError') ||
+		clean.includes('ReferenceError') ||
+		clean.includes('TypeError') ||
+		clean.includes('Failed') ||
+		clean.includes('Unterminated') ||
+		clean.includes('Unexpected token') ||
+		(clean.includes('[plugin:') && clean.includes(']'));
+
+	if (isError) {
+		errorStore.add(`[${source}] ${clean}`);
+		console.warn(`[container:${source}:error]`, clean);
+	}
+}
+
 /** Start the dev servers inside the container */
 export async function startDevServer(): Promise<void> {
 	if (!instance) throw new Error('Container not booted');
@@ -117,6 +143,7 @@ export async function startDevServer(): Promise<void> {
 		new WritableStream({
 			write(chunk) {
 				console.log('[container:backend]', chunk);
+				captureErrors(chunk, 'backend');
 			}
 		})
 	);
@@ -126,6 +153,7 @@ export async function startDevServer(): Promise<void> {
 		new WritableStream({
 			write(chunk) {
 				console.log('[container:frontend]', chunk);
+				captureErrors(chunk, 'frontend');
 			}
 		})
 	);

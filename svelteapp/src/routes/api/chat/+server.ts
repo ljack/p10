@@ -73,6 +73,7 @@ The client will parse these blocks and execute them in the WebContainer. The pre
 - After making changes, tell the user what was done and what they should see in the preview
 - When writing files, always include the COMPLETE file content — never use placeholders or "..."
 - Output one write_file block per file
+- Tool block closing tags MUST match the opening: <tool:write_file ...>content</tool:write_file> — never </tool:CSS> or other mismatched tags
 - For full-stack features, write the API endpoints first, then the frontend UI
 - NEVER run "npm run dev", "npm start", or "node server" — the dev servers are ALREADY running and will auto-reload
 - Frontend changes hot-reload automatically. Backend (server/) changes take effect on next request since Express is already running in memory
@@ -87,6 +88,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	const model = (body.model as string) || 'claude-sonnet-4-20250514';
 	const rawMessages = body.messages as Array<{ role: string; content: string }>;
 	const specContext = (body.specContext as string) || '(no specs created yet)';
+	const errorContext = (body.errorContext as string) || '';
 
 	console.log('[api/chat] POST received:', rawMessages.length, 'messages, apiKey:', apiKey ? 'set' : 'missing');
 
@@ -106,7 +108,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		}))
 	);
 
-	const systemWithSpecs = SYSTEM_PROMPT.replace('{SPEC_CONTEXT}', specContext);
+	const systemWithSpecs = SYSTEM_PROMPT.replace('{SPEC_CONTEXT}', specContext) + errorContext;
 
 	const result = streamText({
 		model: anthropic(model),
