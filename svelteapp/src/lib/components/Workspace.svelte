@@ -43,7 +43,26 @@
 				});
 			} catch { /* ignore */ }
 		}, 5000);
-		return () => clearInterval(interval);
+		// Keyboard shortcuts
+		const handleKeyboard = (e: KeyboardEvent) => {
+			// Cmd/Ctrl+K: Focus chat input
+			if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+				e.preventDefault();
+				const textarea = document.querySelector('.bg-panel-bg textarea') as HTMLTextAreaElement;
+				textarea?.focus();
+			}
+			// Cmd/Ctrl+Shift+P: Toggle preview panel width
+			if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'P') {
+				e.preventDefault();
+				splitPos = splitPos > 50 ? 30 : 70;
+			}
+		};
+		window.addEventListener('keydown', handleKeyboard);
+
+		return () => {
+			clearInterval(interval);
+			window.removeEventListener('keydown', handleKeyboard);
+		};
 	});
 </script>
 
