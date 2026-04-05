@@ -33,6 +33,11 @@
 
 	let messagesContainer: HTMLDivElement | undefined = $state();
 	let messagesEnd: HTMLDivElement | undefined = $state();
+	let inputEl: HTMLTextAreaElement | undefined = $state();
+
+	function focusInput() {
+		inputEl?.focus();
+	}
 
 	let gitReady = $state(false);
 
@@ -344,7 +349,8 @@
 	}
 </script>
 
-<div class="h-full flex flex-col bg-panel-bg border-r border-panel-border">
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="h-full flex flex-col bg-panel-bg border-r border-panel-border" onclick={focusInput}>
 	<!-- Header -->
 	<div class="h-8 flex items-center px-3 border-b border-panel-border shrink-0">
 		<span class="text-accent text-xs font-bold">CHAT</span>
@@ -411,6 +417,7 @@
 		<div class="flex items-end gap-2">
 			<span class="text-accent text-sm font-bold pb-1">❯</span>
 			<textarea
+				bind:this={inputEl}
 				bind:value={input}
 				onkeydown={handleKeyDown}
 				placeholder={isStreaming
