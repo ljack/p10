@@ -26,6 +26,7 @@
 		"@ai-sdk/anthropic": "^3.0.66",
 		"@webcontainer/api": "^1.6.1",
 		"ai": "^6.0.146",
+		"isomorphic-git": "^1.37.4",
 		"zod": "^4.3.6"
 	}
 }

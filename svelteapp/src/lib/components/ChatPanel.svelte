@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { getInstance } from '$lib/sandbox/container';
+	import { initRepo, commitAll, getLog, rollback, isRepoInitialized } from '$lib/git/gitManager';
+	import { subscribe as subscribeContainer, type ContainerState } from '$lib/sandbox/container';
 
 	interface Message {
 		role: 'user' | 'assistant' | 'tool';
@@ -29,11 +31,33 @@
 	let messagesContainer: HTMLDivElement | undefined = $state();
 	let messagesEnd: HTMLDivElement | undefined = $state();
 
+	let gitReady = $state(false);
+
 	// Load API key from localStorage
 	$effect(() => {
 		if (typeof window !== 'undefined') {
 			apiKey = localStorage.getItem('p10_api_key') || '';
 		}
+	});
+
+	// Init git repo when container is ready
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		const unsub = subscribeContainer(async (s: ContainerState) => {
+			if (s.status === 'ready' && !gitReady) {
+				try {
+					const initialized = await isRepoInitialized();
+					if (!initialized) {
+						await initRepo();
+						await commitAll('Initial project scaffold');
+					}
+					gitReady = true;
+				} catch (err) {
+					console.warn('[git] Init failed:', err);
+				}
+			}
+		});
+		return unsub;
 	});
 
 	function scrollToBottom() {
@@ -241,7 +265,22 @@
 			);
 
 			// Now process any tool blocks
+			const hadToolBlocks = /<tool:\w+/.test(fullText);
 			await processToolBlocks(fullText);
+
+			// Auto-commit after tool execution
+			if (hadToolBlocks && gitReady) {
+				try {
+					// Use first line of assistant response as commit message
+					const displayText = fullText.replace(
+						/<tool:\w+(?:\s+\w+="[^"]*")*(?:\s*\/>|>[\s\S]*?<\/tool:\w+>)/g, ''
+					).trim();
+					const commitMsg = displayText.split('\n')[0].slice(0, 80) || 'Agent changes';
+					await commitAll(commitMsg);
+				} catch (err) {
+					console.warn('[git] Auto-commit failed:', err);
+				}
+			}
 		} catch (err) {
 			const errorMsg = err instanceof Error ? err.message : String(err);
 			messages = [

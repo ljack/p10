@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { getInstance, subscribe, type ContainerState } from '$lib/sandbox/container';
+	import { getLog, rollback, type GitCommit } from '$lib/git/gitManager';
 
 	type BottomTab = 'files' | 'git' | 'specs' | 'tests' | 'settings';
 
@@ -12,6 +13,8 @@
 		error: null
 	});
 	let fileTree = $state<string[]>([]);
+	let gitLog = $state<GitCommit[]>([]);
+	let rollingBack = $state(false);
 
 	const tabs: { id: BottomTab; label: string; icon: string }[] = [
 		{ id: 'files', label: 'Files', icon: '📁' },
@@ -31,6 +34,29 @@
 		activeTab = activeTab === tab ? null : tab;
 		if (tab === 'files' && activeTab === 'files') {
 			loadFiles();
+		}
+		if (tab === 'git' && activeTab === 'git') {
+			loadGitLog();
+		}
+	}
+
+	async function loadGitLog() {
+		try {
+			gitLog = await getLog();
+		} catch {
+			gitLog = [];
+		}
+	}
+
+	async function handleRollback(oid: string) {
+		rollingBack = true;
+		try {
+			await rollback(oid);
+			await loadGitLog();
+		} catch (err) {
+			console.error('[git] Rollback failed:', err);
+		} finally {
+			rollingBack = false;
 		}
 	}
 
@@ -111,8 +137,28 @@
 				</div>
 			{:else if activeTab === 'git'}
 				<div class="text-xs text-muted space-y-1 font-mono">
-					<div><span class="text-accent">●</span> Initial commit — Project scaffolded</div>
-					<div class="mt-2 italic">Git integration in Sprint 5</div>
+					{#if gitLog.length === 0}
+						<div class="italic">No commits yet</div>
+					{:else}
+						{#each gitLog as commit, i}
+							<div class="flex items-center gap-2 py-0.5 hover:bg-panel-border/30 px-1 rounded group">
+								<span class="text-accent">{i === 0 ? '●' : '○'}</span>
+								<span class="text-foreground flex-1 truncate">{commit.message}</span>
+								<span class="text-muted shrink-0">{commit.oid.slice(0, 7)}</span>
+								<span class="text-muted shrink-0">{commit.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+								{#if i > 0}
+									<button
+										onclick={() => handleRollback(commit.oid)}
+										disabled={rollingBack}
+										class="text-warning hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-30"
+										title="Rollback to this commit"
+									>
+										↩
+									</button>
+								{/if}
+							</div>
+						{/each}
+					{/if}
 				</div>
 			{:else if activeTab === 'specs'}
 				<div class="text-xs text-muted space-y-1">
