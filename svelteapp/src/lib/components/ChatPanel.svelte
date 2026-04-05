@@ -1,14 +1,19 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import { getInstance, restartBackend } from '$lib/sandbox/container';
-	import { initRepo, commitAll, getLog, rollback, isRepoInitialized } from '$lib/git/gitManager';
 	import { subscribe as subscribeContainer, type ContainerState } from '$lib/sandbox/container';
+	// Note: getInstance, restartBackend, apiExplorer now used via toolExecutor module
+	import { initRepo, commitAll, isRepoInitialized } from '$lib/git/gitManager';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { agentState } from '$lib/stores/agentState.svelte';
 	import { specManager } from '$lib/specs/specManager.svelte';
 	import { errorStore } from '$lib/stores/errors.svelte';
-	import { apiExplorer } from '$lib/stores/apiExplorer.svelte';
 	import { debugBus } from '$lib/debug/debugBus.svelte';
+	import {
+		executeTool,
+		parseToolBlocks,
+		stripToolBlocks,
+		handlePostToolExecution
+	} from '$lib/agent/toolExecutor';
 
 	interface Message {
 		role: 'user' | 'assistant' | 'tool';
@@ -100,114 +105,11 @@
 	}
 
 	/** Execute a tool block against the WebContainer */
-	async function executeTool(
-		name: string,
-		attrs: Record<string, string>,
-		body: string
-	): Promise<string> {
-		const container = getInstance();
-		if (!container) return 'Error: WebContainer not ready';
-
-		try {
-			switch (name) {
-				case 'write_spec': {
-					const filename = attrs.filename;
-					specManager.updateSpec(filename, body, 'draft');
-					// Also parse tasks if it's PLAN.md
-					if (filename === 'PLAN.md') {
-						specManager.parseTasks(body);
-					}
-					return `📋 Spec updated: ${filename} (${body.length} chars)`;
-				}
-				case 'write_file': {
-					const path = attrs.path;
-					const dir = path.split('/').slice(0, -1).join('/');
-					if (dir) await container.fs.mkdir(dir, { recursive: true });
-
-					let content = body;
-					// Always ensure canonical /_routes endpoint in server/index.js
-					if (path === 'server/index.js') {
-						// Remove any agent-written /_routes (may be wrong format)
-						content = content.replace(/\/\/ *(Auto-injected|Route|Routes).*\n(app\.get\(['"]\/(api\/)?_routes['"][\s\S]*?\);\n)/g, '');
-						content = content.replace(/app\.get\(['"]\/(api\/)?_routes['"][\s\S]*?\);\n/g, '');
-
-						const routesSnippet = `\n// P10: route discovery for API Explorer (do not modify)\napp.get('/api/_routes', (req, res) => {\n  const routes = [];\n  app._router.stack.forEach((mw) => {\n    if (mw.route) {\n      const methods = Object.keys(mw.route.methods).map(m => m.toUpperCase());\n      routes.push({ methods, path: mw.route.path });\n    }\n  });\n  res.json(routes.filter(r => r.path !== '/api/_routes'));\n});\n`;
-						const listenIdx = content.lastIndexOf('app.listen');
-						if (listenIdx > 0) {
-							content = content.slice(0, listenIdx) + routesSnippet + content.slice(listenIdx);
-						} else {
-							content += routesSnippet;
-						}
-						console.log('[agent] Ensured canonical /_routes endpoint in server/index.js');
-						debugBus.log('event', 'agent', 'Injected /_routes into server/index.js');
-					}
-
-					await container.fs.writeFile(path, content);
-					return `✅ Written: ${path} (${content.length} bytes)`;
-				}
-				case 'read_file': {
-					const content = await container.fs.readFile(attrs.path, 'utf-8');
-					return content;
-				}
-				case 'list_files': {
-					const entries = await container.fs.readdir(attrs.path || '.', {
-						withFileTypes: true
-					});
-					return entries
-						.filter((e) => e.name !== 'node_modules')
-						.map((e) => (e.isDirectory() ? e.name + '/' : e.name))
-						.join('\n');
-				}
-				case 'run_command': {
-					// Block server start commands — servers are already running
-					const cmd = attrs.command;
-					if (cmd.includes('npm run dev') || cmd.includes('npm start') || cmd.includes('node server')) {
-						return 'Skipped: dev servers are already running. No need to start them.';
-					}
-
-					const parts = cmd.split(' ');
-					const proc = await container.spawn(parts[0], parts.slice(1));
-					let output = '';
-					proc.output.pipeTo(new WritableStream({ write(c) { output += c; } }));
-
-					// Timeout after 30s for long-running commands
-					const code = await Promise.race([
-						proc.exit,
-						new Promise<number>((resolve) => setTimeout(() => {
-							proc.kill();
-							resolve(-1);
-						}, 30000))
-					]);
-					return code === -1 ? `Timeout (30s)\n${output}` : `Exit ${code}\n${output}`;
-				}
-				default:
-					return `Unknown tool: ${name}`;
-			}
-		} catch (err) {
-			return `Error: ${err instanceof Error ? err.message : String(err)}`;
-		}
-	}
-
-	/** Parse tool blocks from streamed text and execute them */
+	/** Process tool blocks from response and execute them */
 	async function processToolBlocks(fullText: string): Promise<void> {
-		// Match <tool:name attr="val">body</tool:name> and <tool:name attr="val" />
-		const toolRegex =
-			/<tool:(\w+)((?:\s+\w+="[^"]*")*)(?:\s*\/>|>([\s\S]*?)<\/tool:\1>)/g;
+		const tools = parseToolBlocks(fullText);
 
-		let match;
-		while ((match = toolRegex.exec(fullText)) !== null) {
-			const toolName = match[1];
-			const attrsStr = match[2];
-			const body = match[3] || '';
-
-			// Parse attributes
-			const attrs: Record<string, string> = {};
-			const attrRegex = /(\w+)="([^"]*)"/g;
-			let attrMatch;
-			while ((attrMatch = attrRegex.exec(attrsStr)) !== null) {
-				attrs[attrMatch[1]] = attrMatch[2];
-			}
-
+		for (const { name: toolName, attrs, body } of tools) {
 			// Add tool message
 			messages = [
 				...messages,
@@ -216,7 +118,7 @@
 					content: '',
 					timestamp: new Date(),
 					toolName,
-					toolPath: attrs.path || attrs.command || ''
+					toolPath: attrs.path || attrs.command || attrs.filename || ''
 				}
 			];
 
@@ -328,14 +230,7 @@
 				agentState.setStatus('writing', 'generating response');
 
 				// Update the streaming message (strip tool blocks for display)
-				const displayText = fullText
-					// Strip complete tool blocks
-					.replace(/<tool:\w+(?:\s+\w+="[^"]*")*(?:\s*\/>|>[\s\S]*?<\/tool:\w+>)/g, '')
-					// Strip incomplete/partial tool blocks (still streaming)
-					.replace(/<tool:\w+(?:\s+\w+="[^"]*")*>[\s\S]*$/g, '')
-					// Strip partial opening tag (e.g. "<tool:write" mid-stream)
-					.replace(/<tool:[^>]*$/g, '')
-					.trim();
+				const displayText = stripToolBlocks(fullText);
 
 				messages = messages.map((m, i) =>
 					i === messages.length - 1 ? { ...m, content: displayText } : m
@@ -354,26 +249,13 @@
 			hadToolBlocks = /<tool:\w+/.test(fullText);
 			await processToolBlocks(fullText);
 
-			// Restart backend if server/ files were written
-			if (/<tool:write_file\s+path="server\//.test(fullText)) {
-				try {
-					await restartBackend();
-					console.log('[agent] Backend restarted after server file change');
-					// Trigger API Explorer to re-discover routes
-					setTimeout(() => apiExplorer.triggerRefresh(), 3000);
-				} catch (err) {
-					console.warn('[agent] Backend restart failed:', err);
-				}
-			}
+			// Handle post-tool actions (backend restart, API refresh)
+			await handlePostToolExecution(fullText);
 
 			// Auto-commit after tool execution
 			if (hadToolBlocks && gitReady) {
 				try {
-					// Use first line of assistant response as commit message
-					const displayText = fullText.replace(
-						/<tool:\w+(?:\s+\w+="[^"]*")*(?:\s*\/>|>[\s\S]*?<\/tool:\w+>)/g, ''
-					).trim();
-					const commitMsg = displayText.split('\n')[0].slice(0, 80) || 'Agent changes';
+					const commitMsg = stripToolBlocks(fullText).split('\n')[0].slice(0, 80) || 'Agent changes';
 					await commitAll(commitMsg);
 				} catch (err) {
 					console.warn('[git] Auto-commit failed:', err);
