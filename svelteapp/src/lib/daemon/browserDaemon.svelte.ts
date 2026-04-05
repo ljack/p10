@@ -15,6 +15,7 @@ import { debugBus } from '$lib/debug/debugBus.svelte';
 import { getState as getContainerState, getInstance } from '$lib/sandbox/container';
 import { errorStore } from '$lib/stores/errors.svelte';
 import { settings } from '$lib/stores/settings.svelte';
+import { startAutonomousWatch, stopAutonomousWatch } from './autonomousAgent';
 
 const MASTER_WS_URL = 'ws://localhost:7777';
 const DAEMON_ID = 'browser-' + Math.random().toString(36).slice(2, 6);
@@ -47,10 +48,12 @@ class BrowserDaemon {
 			onConnect: () => {
 				this.connected = true;
 				debugBus.log('event', 'daemon', 'Connected to Master Daemon');
+				startAutonomousWatch();
 			},
 			onDisconnect: () => {
 				this.connected = false;
 				debugBus.log('event', 'daemon', 'Disconnected from Master Daemon');
+				stopAutonomousWatch();
 			}
 		});
 
