@@ -103,8 +103,23 @@
 					const path = attrs.path;
 					const dir = path.split('/').slice(0, -1).join('/');
 					if (dir) await container.fs.mkdir(dir, { recursive: true });
-					await container.fs.writeFile(path, body);
-					return `✅ Written: ${path} (${body.length} bytes)`;
+
+					let content = body;
+					// Auto-inject /_routes endpoint if agent rewrote server/index.js without it
+					if (path === 'server/index.js' && !content.includes('/_routes')) {
+						const routesSnippet = `\n// Auto-injected: route discovery for API Explorer\napp.get('/api/_routes', (req, res) => {\n  const routes = [];\n  app._router.stack.forEach((mw) => {\n    if (mw.route) {\n      const methods = Object.keys(mw.route.methods).map(m => m.toUpperCase());\n      routes.push({ methods, path: mw.route.path });\n    }\n  });\n  res.json(routes.filter(r => r.path !== '/api/_routes'));\n});\n`;
+						// Insert before app.listen
+						const listenIdx = content.lastIndexOf('app.listen');
+						if (listenIdx > 0) {
+							content = content.slice(0, listenIdx) + routesSnippet + content.slice(listenIdx);
+						} else {
+							content += routesSnippet;
+						}
+						console.log('[agent] Auto-injected /_routes endpoint into server/index.js');
+					}
+
+					await container.fs.writeFile(path, content);
+					return `✅ Written: ${path} (${content.length} bytes)`;
 				}
 				case 'read_file': {
 					const content = await container.fs.readFile(attrs.path, 'utf-8');
