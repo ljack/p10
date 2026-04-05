@@ -37,7 +37,13 @@
 	let messagesEnd: HTMLDivElement | undefined = $state();
 	let inputEl: HTMLTextAreaElement | undefined = $state();
 
-	function focusInput() {
+	function focusInput(e: MouseEvent) {
+		// Only focus if clicking empty space, not when selecting text
+		const selection = window.getSelection();
+		if (selection && selection.toString().length > 0) return;
+		const target = e.target as HTMLElement;
+		// Don't steal focus from interactive elements or text content
+		if (target.closest('button, a, textarea, input, pre, code')) return;
 		inputEl?.focus();
 	}
 
@@ -106,17 +112,20 @@
 					if (dir) await container.fs.mkdir(dir, { recursive: true });
 
 					let content = body;
-					// Auto-inject /_routes endpoint if agent rewrote server/index.js without it
-					if (path === 'server/index.js' && !content.includes('/_routes')) {
-						const routesSnippet = `\n// Auto-injected: route discovery for API Explorer\napp.get('/api/_routes', (req, res) => {\n  const routes = [];\n  app._router.stack.forEach((mw) => {\n    if (mw.route) {\n      const methods = Object.keys(mw.route.methods).map(m => m.toUpperCase());\n      routes.push({ methods, path: mw.route.path });\n    }\n  });\n  res.json(routes.filter(r => r.path !== '/api/_routes'));\n});\n`;
-						// Insert before app.listen
+					// Always ensure canonical /_routes endpoint in server/index.js
+					if (path === 'server/index.js') {
+						// Remove any agent-written /_routes (may be wrong format)
+						content = content.replace(/\/\/ *(Auto-injected|Route|Routes).*\n(app\.get\(['"]\/(api\/)?_routes['"][\s\S]*?\);\n)/g, '');
+						content = content.replace(/app\.get\(['"]\/(api\/)?_routes['"][\s\S]*?\);\n/g, '');
+
+						const routesSnippet = `\n// P10: route discovery for API Explorer (do not modify)\napp.get('/api/_routes', (req, res) => {\n  const routes = [];\n  app._router.stack.forEach((mw) => {\n    if (mw.route) {\n      const methods = Object.keys(mw.route.methods).map(m => m.toUpperCase());\n      routes.push({ methods, path: mw.route.path });\n    }\n  });\n  res.json(routes.filter(r => r.path !== '/api/_routes'));\n});\n`;
 						const listenIdx = content.lastIndexOf('app.listen');
 						if (listenIdx > 0) {
 							content = content.slice(0, listenIdx) + routesSnippet + content.slice(listenIdx);
 						} else {
 							content += routesSnippet;
 						}
-						console.log('[agent] Auto-injected /_routes endpoint into server/index.js');
+						console.log('[agent] Ensured canonical /_routes endpoint in server/index.js');
 					}
 
 					await container.fs.writeFile(path, content);
