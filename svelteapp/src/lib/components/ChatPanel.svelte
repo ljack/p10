@@ -304,10 +304,14 @@
 				agentState.setStatus('writing', 'generating response');
 
 				// Update the streaming message (strip tool blocks for display)
-				const displayText = fullText.replace(
-					/<tool:\w+(?:\s+\w+="[^"]*")*(?:\s*\/>|>[\s\S]*?<\/tool:\w+>)/g,
-					''
-				).trim();
+				const displayText = fullText
+					// Strip complete tool blocks
+					.replace(/<tool:\w+(?:\s+\w+="[^"]*")*(?:\s*\/>|>[\s\S]*?<\/tool:\w+>)/g, '')
+					// Strip incomplete/partial tool blocks (still streaming)
+					.replace(/<tool:\w+(?:\s+\w+="[^"]*")*>[\s\S]*$/g, '')
+					// Strip partial opening tag (e.g. "<tool:write" mid-stream)
+					.replace(/<tool:[^>]*$/g, '')
+					.trim();
 
 				messages = messages.map((m, i) =>
 					i === messages.length - 1 ? { ...m, content: displayText } : m
