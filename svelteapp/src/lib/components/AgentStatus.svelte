@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { agentState } from '$lib/stores/agentState.svelte';
 	import { subscribe, type ContainerState } from '$lib/sandbox/container';
+	import { browserDaemon } from '$lib/daemon/browserDaemon.svelte';
 	import { onMount } from 'svelte';
 
 	let containerState = $state<ContainerState>({
@@ -40,8 +41,11 @@
 
 	<div class="flex-1"></div>
 
-	<!-- Container status -->
-	<div class="text-xs text-muted">
+	<!-- Mesh + Container status -->
+	<div class="flex items-center gap-3 text-xs text-muted">
+		{#if browserDaemon.connected}
+			<span class="text-accent">🔗 mesh</span>
+		{/if}
 		{#if containerState.status === 'booting'}
 			⏳ container
 		{:else if containerState.serverStatus === 'running'}
