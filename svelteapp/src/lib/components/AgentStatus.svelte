@@ -6,7 +6,7 @@
 	let containerState = $state<ContainerState>({
 		status: 'idle',
 		serverStatus: 'stopped',
-		serverUrl: null,
+		serverUrl: null, servers: [],
 		error: null
 	});
 

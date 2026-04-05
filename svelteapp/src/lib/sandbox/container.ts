@@ -6,10 +6,17 @@ let booting = false;
 export type ContainerStatus = 'idle' | 'booting' | 'ready' | 'error';
 export type ServerStatus = 'stopped' | 'starting' | 'running' | 'error';
 
+export interface ServerInfo {
+	port: number;
+	url: string;
+	type: 'frontend' | 'backend' | 'unknown';
+}
+
 export interface ContainerState {
 	status: ContainerStatus;
 	serverStatus: ServerStatus;
 	serverUrl: string | null;
+	servers: ServerInfo[];
 	error: string | null;
 }
 
@@ -20,6 +27,7 @@ let state: ContainerState = {
 	status: 'idle',
 	serverStatus: 'stopped',
 	serverUrl: null,
+	servers: [],
 	error: null
 };
 
@@ -30,7 +38,7 @@ function setState(partial: Partial<ContainerState>) {
 
 export function subscribe(fn: Listener): () => void {
 	listeners.add(fn);
-	fn(state); // send current state immediately
+	fn(state);
 	return () => listeners.delete(fn);
 }
 
@@ -42,21 +50,14 @@ export function getInstance(): WebContainer | null {
 	return instance;
 }
 
-/** Boot the WebContainer and scaffold a Vite + React project */
+/** Boot the WebContainer and scaffold the project */
 export async function boot(): Promise<WebContainer> {
 	if (instance) return instance;
 	if (booting) {
-		// Wait for existing boot
 		return new Promise((resolve, reject) => {
 			const unsub = subscribe((s) => {
-				if (s.status === 'ready' && instance) {
-					unsub();
-					resolve(instance);
-				}
-				if (s.status === 'error') {
-					unsub();
-					reject(new Error(s.error ?? 'Boot failed'));
-				}
+				if (s.status === 'ready' && instance) { unsub(); resolve(instance); }
+				if (s.status === 'error') { unsub(); reject(new Error(s.error ?? 'Boot failed')); }
 			});
 		});
 	}
@@ -66,14 +67,10 @@ export async function boot(): Promise<WebContainer> {
 
 	try {
 		instance = await WebContainer.boot();
-
-		// Write the starter project files
 		await instance.mount(starterFiles);
 
-		// Install dependencies
 		setState({ status: 'booting' });
 		const installProcess = await instance.spawn('npm', ['install']);
-
 		const installExitCode = await installProcess.exit;
 		if (installExitCode !== 0) {
 			throw new Error(`npm install failed with exit code ${installExitCode}`);
@@ -81,9 +78,21 @@ export async function boot(): Promise<WebContainer> {
 
 		setState({ status: 'ready' });
 
-		// Listen for server-ready event
-		instance.on('server-ready', (_port, url) => {
-			setState({ serverStatus: 'running', serverUrl: url });
+		// Listen for ANY server-ready event (frontend or backend)
+		instance.on('server-ready', (port, url) => {
+			console.log(`[container] Server ready on port ${port}: ${url}`);
+
+			const type = port === 5173 ? 'frontend' : port === 3001 ? 'backend' : 'unknown';
+			const newServer: ServerInfo = { port, url, type };
+
+			const servers = [...state.servers.filter((s) => s.port !== port), newServer];
+			const frontendUrl = servers.find((s) => s.type === 'frontend')?.url ?? url;
+
+			setState({
+				serverStatus: 'running',
+				serverUrl: frontendUrl,
+				servers
+			});
 		});
 
 		return instance;
@@ -95,28 +104,34 @@ export async function boot(): Promise<WebContainer> {
 	}
 }
 
-/** Start the Vite dev server inside the container */
+/** Start the dev servers inside the container */
 export async function startDevServer(): Promise<void> {
 	if (!instance) throw new Error('Container not booted');
 
 	setState({ serverStatus: 'starting' });
 
-	const process = await instance.spawn('npm', ['run', 'dev']);
-
-	// Stream output for debugging
-	process.output.pipeTo(
+	// Start backend and frontend as separate processes
+	const backendProc = await instance.spawn('npm', ['run', 'dev:backend']);
+	backendProc.output.pipeTo(
 		new WritableStream({
 			write(chunk) {
-				console.log('[container]', chunk);
+				console.log('[container:backend]', chunk);
 			}
 		})
 	);
 
-	process.exit.then((code) => {
+	const frontendProc = await instance.spawn('npm', ['run', 'dev:frontend']);
+	frontendProc.output.pipeTo(
+		new WritableStream({
+			write(chunk) {
+				console.log('[container:frontend]', chunk);
+			}
+		})
+	);
+
+	frontendProc.exit.then((code) => {
 		if (code !== 0) {
-			setState({ serverStatus: 'error', error: `Dev server exited with code ${code}` });
-		} else {
-			setState({ serverStatus: 'stopped', serverUrl: null });
+			setState({ serverStatus: 'error', error: `Frontend server exited with code ${code}` });
 		}
 	});
 }
@@ -171,11 +186,15 @@ const starterFiles: Record<string, any> = {
 					version: '0.0.1',
 					type: 'module',
 					scripts: {
-						dev: 'vite --host'
+						dev: 'node server/index.js & vite --host',
+						'dev:frontend': 'vite --host',
+						'dev:backend': 'node server/index.js'
 					},
 					dependencies: {
 						react: '^19.0.0',
-						'react-dom': '^19.0.0'
+						'react-dom': '^19.0.0',
+						express: '^4.21.0',
+						cors: '^2.8.5'
 					},
 					devDependencies: {
 						'@vitejs/plugin-react': '^4.5.2',
@@ -189,12 +208,16 @@ const starterFiles: Record<string, any> = {
 	},
 	'vite.config.js': {
 		file: {
-			contents: `
-import { defineConfig } from 'vite';
+			contents: `import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
+  server: {
+    proxy: {
+      '/api': 'http://localhost:3001'
+    }
+  }
 });
 `
 		}
@@ -223,8 +246,7 @@ export default defineConfig({
 		directory: {
 			'main.jsx': {
 				file: {
-					contents: `
-import React from 'react';
+					contents: `import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
@@ -234,8 +256,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 			},
 			'App.jsx': {
 				file: {
-					contents: `
-import React from 'react';
+					contents: `import React from 'react';
 
 export default function App() {
   return (
@@ -247,6 +268,36 @@ export default function App() {
     </div>
   );
 }
+`
+				}
+			}
+		}
+	},
+	server: {
+		directory: {
+			'index.js': {
+				file: {
+					contents: `import express from 'express';
+import cors from 'cors';
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// Health check
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Example endpoint — agent will add more
+app.get('/api', (req, res) => {
+  res.json({ message: 'P10 API is running. Add endpoints by chatting with the agent.' });
+});
+
+const PORT = 3001;
+app.listen(PORT, () => {
+  console.log(\`API server running on http://localhost:\${PORT}\`);
+});
 `
 				}
 			}
