@@ -53,7 +53,9 @@
 		DELETE: 'text-error'
 	};
 
-	/** Fetch /_routes from the backend via the iframe bridge */
+	/** Fetch /_routes from the backend via the iframe bridge, with retry */
+	let discoveryRetries = 0;
+
 	async function discoverRoutes() {
 		discovering = true;
 		try {
@@ -61,9 +63,17 @@
 			if (result.status === 200) {
 				discoveredRoutes = JSON.parse(result.body);
 				console.log('[api-explorer] Discovered', discoveredRoutes.length, 'routes');
+				discoveryRetries = 0;
 			}
 		} catch (err) {
 			console.warn('[api-explorer] Route discovery failed:', err);
+			// Retry up to 3 times with increasing delay (bridge may not be loaded yet)
+			if (discoveryRetries < 3) {
+				discoveryRetries++;
+				const delay = discoveryRetries * 3000;
+				console.log('[api-explorer] Retrying in', delay, 'ms (attempt', discoveryRetries, ')');
+				setTimeout(() => discoverRoutes(), delay);
+			}
 		} finally {
 			discovering = false;
 		}
