@@ -424,24 +424,23 @@
 		onscroll={handleScroll}
 		class="flex-1 overflow-y-auto p-3 space-y-4 min-h-0"
 	>
-		{#each messages as msg}
+		{#each messages as msg, i}
 			{#if msg.role === 'tool'}
-				<div class="text-xs border border-panel-border rounded bg-background p-2 space-y-1">
-					<div class="text-muted font-bold">
-						🔧 {msg.toolName}
-						{#if msg.toolPath}
-							<span class="text-accent font-normal ml-1">{msg.toolPath}</span>
-						{/if}
-					</div>
-					{#if msg.toolResult}
-						<pre
-							class="text-muted text-xs max-h-32 overflow-y-auto whitespace-pre-wrap"
-							>{msg.toolResult.length > 500
-								? msg.toolResult.slice(0, 500) + '...'
-								: msg.toolResult}</pre
-						>
+				{@const isError = msg.toolResult?.startsWith('Error:') || msg.toolResult?.startsWith('❌')}
+				{@const isDone = !!msg.toolResult && !isError}
+				{@const isRunning = !msg.toolResult}
+				<div
+					class="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-full -mt-3
+						{isError ? 'bg-error/10 text-error' : isDone ? 'bg-accent/10 text-accent' : 'bg-warning/10 text-warning'}"
+				>
+					{#if isRunning}
+						<span class="animate-pulse">●</span>
 					{:else}
-						<span class="text-muted animate-pulse">executing...</span>
+						<span>●</span>
+					{/if}
+					<span class="font-bold">{msg.toolName}</span>
+					{#if msg.toolPath}
+						<span class="opacity-70">{msg.toolPath}</span>
 					{/if}
 				</div>
 			{:else}
