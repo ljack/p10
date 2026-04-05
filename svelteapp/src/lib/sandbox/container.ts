@@ -238,6 +238,7 @@ export default defineConfig({
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    <script src="/p10-bridge.js"></script>
   </body>
 </html>`
 		}
@@ -268,6 +269,36 @@ export default function App() {
     </div>
   );
 }
+`
+				}
+			}
+		}
+	},
+	public: {
+		directory: {
+			'p10-bridge.js': {
+				file: {
+					contents: `// P10 API proxy bridge
+window.addEventListener('message', async (event) => {
+  if (event.data?.type !== 'p10-api-request') return;
+  const { id, url, method, headers, body } = event.data;
+  try {
+    const opts = { method, headers: headers || {} };
+    if (body) opts.body = body;
+    const res = await fetch(url, opts);
+    const text = await res.text();
+    window.parent.postMessage({
+      type: 'p10-api-response', id,
+      status: res.status, statusText: res.statusText, body: text
+    }, '*');
+  } catch (err) {
+    window.parent.postMessage({
+      type: 'p10-api-response', id,
+      status: 0, statusText: 'Error', body: err.message
+    }, '*');
+  }
+});
+console.log('[p10-bridge] API bridge loaded');
 `
 				}
 			}

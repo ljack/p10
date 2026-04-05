@@ -35,33 +35,58 @@
 		loading = true;
 		response = null;
 
-		const url = `${backendServer.url}${path}`;
+		// Use the frontend iframe as a bridge to reach the backend.
+		// The iframe is on the same WebContainer origin and can fetch the backend.
+		const frontendServer = containerState.servers.find((s) => s.type === 'frontend');
+		const targetUrl = `http://localhost:3001${path}`; // Internal WebContainer URL
+		const requestId = Math.random().toString(36).slice(2);
 		const start = performance.now();
 
 		try {
-			const opts: RequestInit = {
-				method,
-				headers: { 'Content-Type': 'application/json' }
-			};
+			// Find the web preview iframe
+			const iframe = document.querySelector('iframe[title="Web Preview"]') as HTMLIFrameElement;
+			if (!iframe?.contentWindow) throw new Error('Web preview iframe not found');
 
-			if (['POST', 'PUT', 'PATCH'].includes(method) && requestBody.trim()) {
-				opts.body = requestBody;
-			}
+			// Send request via postMessage to the iframe
+			const result = await new Promise<{ status: number; statusText: string; body: string }>(
+				(resolve, reject) => {
+					const timeout = setTimeout(() => reject(new Error('Request timeout (10s)')), 10000);
 
-			const res = await fetch(url, opts);
+					const handler = (event: MessageEvent) => {
+						if (event.data?.type === 'p10-api-response' && event.data.id === requestId) {
+							clearTimeout(timeout);
+							window.removeEventListener('message', handler);
+							resolve(event.data);
+						}
+					};
+					window.addEventListener('message', handler);
+
+					iframe.contentWindow!.postMessage(
+						{
+							type: 'p10-api-request',
+							id: requestId,
+							url: targetUrl,
+							method,
+							headers: { 'Content-Type': 'application/json' },
+							body: ['POST', 'PUT', 'PATCH'].includes(method) ? requestBody : undefined
+						},
+						'*'
+					);
+				}
+			);
+
 			const elapsed = Math.round(performance.now() - start);
-			const text = await res.text();
 
 			// Try to pretty-print JSON
-			let body = text;
+			let body = result.body;
 			try {
-				body = JSON.stringify(JSON.parse(text), null, 2);
+				body = JSON.stringify(JSON.parse(result.body), null, 2);
 			} catch {
-				// not JSON, keep as-is
+				// not JSON
 			}
 
-			response = { status: res.status, body, time: elapsed };
-			history = [{ method, path, status: res.status, time: elapsed }, ...history.slice(0, 19)];
+			response = { status: result.status, body, time: elapsed };
+			history = [{ method, path, status: result.status, time: elapsed }, ...history.slice(0, 19)];
 		} catch (err) {
 			const elapsed = Math.round(performance.now() - start);
 			response = {

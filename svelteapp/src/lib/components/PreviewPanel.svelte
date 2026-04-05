@@ -88,34 +88,35 @@
 	</div>
 
 	<!-- Preview content -->
-	<div class="flex-1 min-h-0">
-		{#if activeTab === 'web'}
-			{#if containerState.serverUrl}
-				<iframe
-					bind:this={iframeEl}
-					src={containerState.serverUrl}
-					title="Web Preview"
-					class="w-full h-full border-none bg-white"
-					sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
-				></iframe>
-			{:else}
-				<div class="h-full flex items-center justify-center">
-					<div class="flex flex-col items-center gap-3 text-muted">
-						<div
-							class="w-64 h-40 border border-panel-border rounded flex items-center justify-center"
-						>
-							{#if containerState.status === 'booting' || containerState.serverStatus === 'starting'}
-								<span class="text-xs animate-pulse">Loading...</span>
-							{:else if containerState.status === 'error'}
-								<span class="text-xs text-error">{containerState.error}</span>
-							{:else}
-								<span class="text-xs">Web Preview</span>
-							{/if}
-						</div>
-						<span class="text-xs">{getStatusText()}</span>
+	<div class="flex-1 min-h-0 relative">
+		<!-- Web iframe — always mounted for API bridge, hidden when not on web tab -->
+		{#if containerState.serverUrl}
+			<iframe
+				bind:this={iframeEl}
+				src={containerState.serverUrl}
+				title="Web Preview"
+				class="w-full h-full border-none bg-white absolute inset-0 {activeTab === 'web' ? '' : 'invisible'}"
+				sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+			></iframe>
+		{/if}
+
+		{#if activeTab === 'web' && !containerState.serverUrl}
+			<div class="h-full flex items-center justify-center">
+				<div class="flex flex-col items-center gap-3 text-muted">
+					<div
+						class="w-64 h-40 border border-panel-border rounded flex items-center justify-center"
+					>
+						{#if containerState.status === 'booting' || containerState.serverStatus === 'starting'}
+							<span class="text-xs animate-pulse">Loading...</span>
+						{:else if containerState.status === 'error'}
+							<span class="text-xs text-error">{containerState.error}</span>
+						{:else}
+							<span class="text-xs">Web Preview</span>
+						{/if}
 					</div>
+					<span class="text-xs">{getStatusText()}</span>
 				</div>
-			{/if}
+			</div>
 		{:else if activeTab === 'api'}
 			<ApiPreview />
 		{:else}
