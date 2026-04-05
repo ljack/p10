@@ -232,6 +232,14 @@
 		// Add user message
 		messages = [...messages, { role: 'user', content: trimmed, timestamp: new Date() }];
 		input = '';
+		autoFixAttempts = 0; // Reset on new user message
+		await handleSubmitInternal();
+	}
+
+	/** Core send logic — shared between user messages and auto-fix */
+	let hadToolBlocks = false;
+
+	async function handleSubmitInternal() {
 		isStreaming = true;
 		agentState.setStatus('thinking', 'processing request');
 
@@ -300,7 +308,7 @@
 			);
 
 			// Now process any tool blocks
-			const hadToolBlocks = /<tool:\w+/.test(fullText);
+			hadToolBlocks = /<tool:\w+/.test(fullText);
 			await processToolBlocks(fullText);
 
 			// Restart backend if server/ files were written
@@ -337,7 +345,37 @@
 			userHasScrolled = false;
 			agentState.setStatus('idle');
 			errorStore.clear();
+
+			// Wait for build errors to appear, then auto-fix
+			if (hadToolBlocks) {
+				setTimeout(() => checkForBuildErrors(), 5000);
+			}
 		}
+	}
+
+	/** Check for build errors and auto-send them to the agent */
+	let autoFixAttempts = 0;
+	const MAX_AUTO_FIX = 3;
+
+	async function checkForBuildErrors() {
+		const errors = errorStore.getContext();
+		if (!errors || isStreaming || autoFixAttempts >= MAX_AUTO_FIX) return;
+
+		autoFixAttempts++;
+		console.log('[agent] Auto-detected build errors, sending to agent (attempt', autoFixAttempts + ')');
+
+		// Add error as a system message
+		messages = [
+			...messages,
+			{
+				role: 'user',
+				content: `The preview shows build errors. Please fix them:\n${errors}`,
+				timestamp: new Date()
+			}
+		];
+
+		// Trigger the agent
+		await handleSubmitInternal();
 	}
 
 	function handleKeyDown(e: KeyboardEvent) {
