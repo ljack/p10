@@ -17,7 +17,14 @@ import { errorStore } from '$lib/stores/errors.svelte';
 import { settings } from '$lib/stores/settings.svelte';
 import { startAutonomousWatch, stopAutonomousWatch } from './autonomousAgent';
 
-const MASTER_WS_URL = 'ws://localhost:7777';
+/** Try to discover Master Daemon URL from well-known file or default */
+function discoverMasterUrl(): string {
+	// In browser, we can't read /tmp/p10-master.json directly.
+	// Use a SvelteKit API endpoint to read it for us.
+	return 'ws://localhost:7777'; // Default, will be replaced by discovery endpoint
+}
+
+const MASTER_WS_URL = discoverMasterUrl();
 const DAEMON_ID = 'browser-' + Math.random().toString(36).slice(2, 6);
 
 class BrowserDaemon {
@@ -26,11 +33,26 @@ class BrowserDaemon {
 	masterTldr = $state('');
 
 	/** Start the daemon and connect to Master */
-	start() {
+	async start() {
 		if (this.client) return;
 
+		// Auto-discover Master Daemon
+		let masterUrl = MASTER_WS_URL;
+		try {
+			const res = await fetch('/api/mesh');
+			const data = await res.json();
+			if (data.available && data.wsUrl) {
+				masterUrl = data.wsUrl;
+				debugBus.log('event', 'daemon', `Discovered Master at ${masterUrl}`);
+			} else {
+				debugBus.log('info', 'daemon', 'Master Daemon not found, will retry connection');
+			}
+		} catch {
+			debugBus.log('info', 'daemon', 'Discovery endpoint unavailable, using default');
+		}
+
 		this.client = new WsClient({
-			url: MASTER_WS_URL,
+			url: masterUrl,
 			daemonId: DAEMON_ID,
 			name: 'P10 Browser',
 			type: 'browser',

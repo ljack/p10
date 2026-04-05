@@ -215,8 +215,37 @@ async function handleQuery(question: string): Promise<string> {
 	}
 }
 
+/** Basic security check for destructive operations */
+function checkTaskSecurity(instruction: string): { safe: boolean; reason?: string } {
+	const dangerous = [
+		{ pattern: /rm\s+(-rf|-fr|--recursive)\s/i, reason: 'Recursive file deletion' },
+		{ pattern: /sudo\s/i, reason: 'Superuser operation' },
+		{ pattern: /git\s+push\s+.*--force/i, reason: 'Force push' },
+		{ pattern: /git\s+reset\s+--hard/i, reason: 'Hard reset' },
+		{ pattern: /npm\s+publish/i, reason: 'Package publishing' },
+		{ pattern: /curl\s+.*\|\s*(bash|sh)/i, reason: 'Remote code execution' },
+		{ pattern: /DROP\s+(TABLE|DATABASE)/i, reason: 'Database destruction' },
+	];
+
+	for (const { pattern, reason } of dangerous) {
+		if (pattern.test(instruction)) {
+			return { safe: false, reason: `🚨 BLOCKED: ${reason}` };
+		}
+	}
+	return { safe: true };
+}
+
 async function handleTask(payload: any): Promise<any> {
 	const instruction = payload?.instruction || '';
+
+	// Security check
+	const security = checkTaskSecurity(instruction);
+	if (!security.safe) {
+		console.log(`[pi-daemon] 🚨 Task blocked: ${security.reason}`);
+		appendToHistory(`BLOCKED: ${instruction.slice(0, 100)} — ${security.reason}`);
+		return { error: security.reason, blocked: true };
+	}
+
 	taskCount++;
 	currentTask = instruction.slice(0, 60);
 	lastAction = `task: ${instruction.slice(0, 40)}`;
