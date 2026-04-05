@@ -26,15 +26,25 @@
 	let discoveredRoutes = $state<RouteInfo[]>([]);
 	let discovering = $state(false);
 
-	onMount(() => subscribe((s) => {
-		const hadBackend = containerState.servers.some((srv) => srv.type === 'backend');
-		containerState = s;
-		const hasBackend = s.servers.some((srv) => srv.type === 'backend');
-		// Auto-discover when backend appears or reappears
-		if (hasBackend && !hadBackend) {
+	onMount(() => {
+		const unsub = subscribe((s) => {
+			const hadBackend = containerState.servers.some((srv) => srv.type === 'backend');
+			containerState = s;
+			const hasBackend = s.servers.some((srv) => srv.type === 'backend');
+			// Auto-discover when backend appears or reappears
+			if (hasBackend && !hadBackend) {
+				setTimeout(() => discoverRoutes(), 2000);
+			}
+		});
+
+		// Also discover immediately on mount if backend is already running
+		if (containerState.servers.some((s) => s.type === 'backend') && discoveredRoutes.length === 0) {
+			debugBus.log('info', 'api-explorer', 'Backend already running on mount, discovering...');
 			setTimeout(() => discoverRoutes(), 1000);
 		}
-	}));
+
+		return unsub;
+	});
 
 	let backendServer = $derived(containerState.servers.find((s) => s.type === 'backend'));
 

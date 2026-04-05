@@ -155,9 +155,12 @@
 					<span class="text-xs">{getStatusText()}</span>
 				</div>
 			</div>
-		{:else if activeTab === 'api'}
-			<ApiPreview />
 		{/if}
+
+		<!-- API Explorer — always mounted but hidden when not active, so discovery keeps running -->
+		<div class="{activeTab === 'api' ? 'contents' : 'hidden'}">
+			<ApiPreview />
+		</div>
 
 		<!-- Floating Mobile Preview -->
 		{#if mobileVisible && containerState.serverUrl}
