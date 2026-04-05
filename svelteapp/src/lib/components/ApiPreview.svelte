@@ -2,6 +2,7 @@
 	import { subscribe, type ContainerState, type ServerInfo } from '$lib/sandbox/container';
 	import { onMount } from 'svelte';
 	import { apiExplorer } from '$lib/stores/apiExplorer.svelte';
+	import { debugBus } from '$lib/debug/debugBus.svelte';
 
 	let containerState = $state<ContainerState>({
 		status: 'idle',
@@ -58,21 +59,30 @@
 
 	async function discoverRoutes() {
 		discovering = true;
+		debugBus.log('event', 'api-explorer', 'discoverRoutes called', { retryAttempt: discoveryRetries });
+
 		try {
 			const result = await bridgeFetch('GET', '/api/_routes');
+			debugBus.log('info', 'api-explorer', `/_routes response: ${result.status}`, result.body?.substring(0, 200));
+
 			if (result.status === 200) {
 				discoveredRoutes = JSON.parse(result.body);
-				console.log('[api-explorer] Discovered', discoveredRoutes.length, 'routes');
+				debugBus.log('event', 'api-explorer', `Discovered ${discoveredRoutes.length} routes`, discoveredRoutes);
 				discoveryRetries = 0;
+			} else {
+				debugBus.log('warn', 'api-explorer', `/_routes returned ${result.status}`, result.body?.substring(0, 200));
 			}
 		} catch (err) {
-			console.warn('[api-explorer] Route discovery failed:', err);
-			// Retry up to 3 times with increasing delay (bridge may not be loaded yet)
+			const msg = err instanceof Error ? err.message : String(err);
+			debugBus.log('error', 'api-explorer', `Route discovery failed: ${msg}`);
+
 			if (discoveryRetries < 3) {
 				discoveryRetries++;
 				const delay = discoveryRetries * 3000;
-				console.log('[api-explorer] Retrying in', delay, 'ms (attempt', discoveryRetries, ')');
+				debugBus.log('info', 'api-explorer', `Retrying in ${delay}ms (attempt ${discoveryRetries})`);
 				setTimeout(() => discoverRoutes(), delay);
+			} else {
+				debugBus.log('error', 'api-explorer', 'Max retries reached, giving up');
 			}
 		} finally {
 			discovering = false;
@@ -80,14 +90,30 @@
 	}
 
 	/** Make a request through the iframe postMessage bridge */
+	let lastRequest: string | null = $state(null);
+	let lastResponseData: { status: number; body: string } | null = $state(null);
+
+	// Register debug provider
+	$effect(() => {
+		debugBus.registerProvider('apiExplorer', () => ({
+			discoveredRoutes,
+			lastRequest,
+			lastResponse: lastResponseData
+		}));
+	});
+
 	function bridgeFetch(
 		fetchMethod: string,
 		fetchPath: string,
 		fetchBody?: string
 	): Promise<{ status: number; statusText: string; body: string }> {
+		lastRequest = `${fetchMethod} ${fetchPath}`;
+		debugBus.log('info', 'bridge', `Request: ${fetchMethod} ${fetchPath}`);
+
 		return new Promise((resolve, reject) => {
 			const iframe = document.querySelector('iframe[title="Web Preview"]') as HTMLIFrameElement;
 			if (!iframe?.contentWindow) {
+				debugBus.log('error', 'bridge', 'iframe not found or no contentWindow');
 				reject(new Error('Web preview iframe not available'));
 				return;
 			}
@@ -95,6 +121,7 @@
 			const requestId = Math.random().toString(36).slice(2);
 			const timeout = setTimeout(() => {
 				window.removeEventListener('message', handler);
+				debugBus.log('error', 'bridge', `Timeout: ${fetchMethod} ${fetchPath} (10s)`);
 				reject(new Error('Request timeout (10s)'));
 			}, 10000);
 
@@ -102,6 +129,8 @@
 				if (event.data?.type === 'p10-api-response' && event.data.id === requestId) {
 					clearTimeout(timeout);
 					window.removeEventListener('message', handler);
+					lastResponseData = { status: event.data.status, body: event.data.body?.substring(0, 200) };
+					debugBus.log('info', 'bridge', `Response: ${event.data.status} ${fetchPath}`, event.data.body?.substring(0, 100));
 					resolve(event.data);
 				}
 			}

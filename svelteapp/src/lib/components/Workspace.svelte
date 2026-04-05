@@ -4,6 +4,8 @@
 	import PreviewPanel from './PreviewPanel.svelte';
 	import AgentStatus from './AgentStatus.svelte';
 	import BottomBar from './BottomBar.svelte';
+	import { onMount } from 'svelte';
+	import { debugBus } from '$lib/debug/debugBus.svelte';
 
 	let { projectId }: { projectId: string } = $props();
 
@@ -25,6 +27,22 @@
 	function onMouseUp() {
 		dragging = false;
 	}
+
+	// Push state snapshot to server every 5 seconds
+	onMount(() => {
+		debugBus.log('event', 'app', 'P10 workspace mounted');
+		const interval = setInterval(async () => {
+			try {
+				const snapshot = debugBus.getSnapshot();
+				await fetch('/api/debug', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(snapshot)
+				});
+			} catch { /* ignore */ }
+		}, 5000);
+		return () => clearInterval(interval);
+	});
 </script>
 
 <div class="h-full flex flex-col bg-background text-foreground">

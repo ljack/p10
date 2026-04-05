@@ -8,6 +8,7 @@
 	import { specManager } from '$lib/specs/specManager.svelte';
 	import { errorStore } from '$lib/stores/errors.svelte';
 	import { apiExplorer } from '$lib/stores/apiExplorer.svelte';
+	import { debugBus } from '$lib/debug/debugBus.svelte';
 
 	interface Message {
 		role: 'user' | 'assistant' | 'tool';
@@ -48,6 +49,18 @@
 	}
 
 	let gitReady = $state(false);
+
+	// Register debug provider for chat state
+	$effect(() => {
+		debugBus.registerProvider('chat', () => ({
+			messageCount: messages.length,
+			lastUserMessage: [...messages].reverse().find(m => m.role === 'user')?.content?.substring(0, 100) || null,
+			lastAgentMessage: [...messages].reverse().find(m => m.role === 'assistant')?.content?.substring(0, 100) || null,
+			isStreaming,
+			hasApiKey: !!settings.apiKey
+		}));
+		debugBus.registerProvider('errors', () => errorStore.errors);
+	});
 
 
 
@@ -126,6 +139,7 @@
 							content += routesSnippet;
 						}
 						console.log('[agent] Ensured canonical /_routes endpoint in server/index.js');
+						debugBus.log('event', 'agent', 'Injected /_routes into server/index.js');
 					}
 
 					await container.fs.writeFile(path, content);

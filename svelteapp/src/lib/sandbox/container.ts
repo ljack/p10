@@ -1,6 +1,7 @@
 import { WebContainer } from '@webcontainer/api';
 
 import { errorStore } from '$lib/stores/errors.svelte';
+import { debugBus } from '$lib/debug/debugBus.svelte';
 
 let instance: WebContainer | null = null;
 let booting = false;
@@ -35,8 +36,20 @@ let state: ContainerState = {
 };
 
 function setState(partial: Partial<ContainerState>) {
+	const prev = state;
 	state = { ...state, ...partial };
 	listeners.forEach((fn) => fn(state));
+
+	// Debug logging for state changes
+	if (partial.status && partial.status !== prev.status) {
+		debugBus.log('event', 'container', `status: ${partial.status}`, partial.error || undefined);
+	}
+	if (partial.serverStatus && partial.serverStatus !== prev.serverStatus) {
+		debugBus.log('event', 'container', `serverStatus: ${partial.serverStatus}`);
+	}
+	if (partial.servers) {
+		debugBus.log('event', 'container', `servers updated: ${partial.servers.map(s => s.type + ':' + s.port).join(', ')}`);
+	}
 }
 
 export function subscribe(fn: Listener): () => void {
@@ -48,6 +61,14 @@ export function subscribe(fn: Listener): () => void {
 export function getState(): ContainerState {
 	return state;
 }
+
+// Register debug provider
+debugBus.registerProvider('container', () => ({
+	status: state.status,
+	serverStatus: state.serverStatus,
+	servers: state.servers,
+	error: state.error
+}));
 
 export function getInstance(): WebContainer | null {
 	return instance;
@@ -84,6 +105,7 @@ export async function boot(): Promise<WebContainer> {
 		// Listen for ANY server-ready event (frontend or backend)
 		instance.on('server-ready', (port, url) => {
 			console.log(`[container] Server ready on port ${port}: ${url}`);
+			debugBus.log('event', 'container', `server-ready port=${port}`, url);
 
 			const type = port === 5173 ? 'frontend' : port === 3001 ? 'backend' : 'unknown';
 			const newServer: ServerInfo = { port, url, type };
