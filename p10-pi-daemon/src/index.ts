@@ -7,6 +7,7 @@ import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { WsClient } from './wsClient.js';
+import { ModelRouter } from './modelRouter.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MEMORY_DIR = join(__dirname, '..', 'memory');
@@ -59,10 +60,16 @@ function generateTldr(): string {
 
 // Pi SDK agent session (lazy loaded)
 let piSession: any = null;
+let modelRouter: ModelRouter | null = null;
+let piModules: any = null;
 
-async function getPiSession() {
-	if (piSession) return piSession;
+async function loadPiModules() {
+	if (piModules) return piModules;
+	piModules = await import('@mariozechner/pi-coding-agent');
+	return piModules;
+}
 
+async function getPiSession(taskType?: string) {
 	try {
 		const {
 			AuthStorage,
@@ -70,10 +77,15 @@ async function getPiSession() {
 			SessionManager,
 			createAgentSession,
 			codingTools
-		} = await import('@mariozechner/pi-coding-agent');
+		} = await loadPiModules();
 
 		const authStorage = AuthStorage.create();
 		const modelRegistry = ModelRegistry.create(authStorage);
+
+		// Init model router
+		if (!modelRouter) {
+			modelRouter = new ModelRouter(modelRegistry);
+		}
 
 		// Get available models
 		const available = await modelRegistry.getAvailable();
@@ -82,29 +94,41 @@ async function getPiSession() {
 			return null;
 		}
 
-		console.log(`[pi-daemon] Available models: ${available.map(m => m.id).join(', ')}`);
+		if (!piSession) {
+			console.log(`[pi-daemon] Available models: ${available.map((m: any) => m.id).join(', ')}`);
 
-		const { session } = await createAgentSession({
-			cwd: PROJECT_DIR,
-			sessionManager: SessionManager.inMemory(),
-			authStorage,
-			modelRegistry,
-			tools: codingTools,
-		});
+			const { session } = await createAgentSession({
+				cwd: PROJECT_DIR,
+				sessionManager: SessionManager.inMemory(),
+				authStorage,
+				modelRegistry,
+				tools: codingTools,
+			});
 
-		// Subscribe to events
-		session.subscribe((event: any) => {
-			if (event.type === 'message_update' && event.assistantMessageEvent?.type === 'text_delta') {
-				process.stdout.write(event.assistantMessageEvent.delta);
+			session.subscribe((event: any) => {
+				if (event.type === 'message_update' && event.assistantMessageEvent?.type === 'text_delta') {
+					process.stdout.write(event.assistantMessageEvent.delta);
+				}
+				if (event.type === 'tool_execution_start') {
+					console.log(`\n[pi-daemon] Tool: ${event.toolName}`);
+				}
+			});
+
+			piSession = session;
+			console.log('[pi-daemon] Pi agent session created');
+		}
+
+		// Switch model based on task type if needed
+		if (taskType && modelRouter) {
+			const classified = modelRouter.classifyTask(taskType);
+			const bestModel = await modelRouter.getBestModel(classified);
+			if (bestModel && bestModel.id !== piSession.model?.id) {
+				await piSession.setModel(bestModel);
+				console.log(`[pi-daemon] Switched to ${bestModel.id} for ${classified} task`);
 			}
-			if (event.type === 'tool_execution_start') {
-				console.log(`\n[pi-daemon] Tool: ${event.toolName}`);
-			}
-		});
+		}
 
-		piSession = session;
-		console.log('[pi-daemon] Pi agent session created');
-		return session;
+		return piSession;
 	} catch (err: any) {
 		console.error('[pi-daemon] Failed to create pi session:', err.message);
 		return null;
@@ -253,7 +277,7 @@ async function handleTask(payload: any): Promise<any> {
 
 	console.log(`\n[pi-daemon] 📋 Task: ${instruction}`);
 
-	const session = await getPiSession();
+	const session = await getPiSession(instruction);
 	if (!session) {
 		currentTask = null;
 		return { error: 'Pi agent not available' };
