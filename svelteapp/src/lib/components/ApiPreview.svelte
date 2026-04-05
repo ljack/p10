@@ -49,9 +49,13 @@
 	let backendServer = $derived(containerState.servers.find((s) => s.type === 'backend'));
 
 	// Re-discover when ChatPanel signals a server file was written
+	let lastRefreshCounter = 0;
 	$effect(() => {
-		if (apiExplorer.refreshCounter > 0) {
-			discoverRoutes();
+		const counter = apiExplorer.refreshCounter;
+		if (counter > lastRefreshCounter) {
+			lastRefreshCounter = counter;
+			// Use setTimeout to break out of the reactive tracking context
+			setTimeout(() => discoverRoutes(), 100);
 		}
 	});
 
@@ -67,7 +71,11 @@
 	/** Fetch /_routes from the backend via the iframe bridge, with retry */
 	let discoveryRetries = 0;
 
+	let discoveryInFlight = false;
+
 	async function discoverRoutes() {
+		if (discoveryInFlight) return; // Prevent concurrent calls
+		discoveryInFlight = true;
 		discovering = true;
 		debugBus.log('event', 'api-explorer', 'discoverRoutes called', { retryAttempt: discoveryRetries });
 
@@ -96,6 +104,7 @@
 			}
 		} finally {
 			discovering = false;
+			discoveryInFlight = false;
 		}
 	}
 
