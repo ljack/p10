@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { browserDaemon } from '$lib/daemon/browserDaemon.svelte';
+
 	let { projectId }: { projectId: string } = $props();
 </script>
 
@@ -10,6 +12,11 @@
 	</div>
 
 	<div class="flex items-center gap-4">
+		{#if browserDaemon.connected}
+			<span class="text-accent text-xs" title="Connected to Master Daemon">🔗 mesh</span>
+		{:else}
+			<span class="text-muted text-xs" title="Master Daemon not connected">○ offline</span>
+		{/if}
 		<button class="text-muted hover:text-foreground text-xs transition-colors">⚙️ Settings</button>
 	</div>
 </div>

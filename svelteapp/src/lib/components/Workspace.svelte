@@ -4,8 +4,9 @@
 	import PreviewPanel from './PreviewPanel.svelte';
 	import AgentStatus from './AgentStatus.svelte';
 	import BottomBar from './BottomBar.svelte';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { debugBus } from '$lib/debug/debugBus.svelte';
+	import { browserDaemon } from '$lib/daemon/browserDaemon.svelte';
 
 	let { projectId }: { projectId: string } = $props();
 
@@ -28,9 +29,10 @@
 		dragging = false;
 	}
 
-	// Push state snapshot to server every 5 seconds
+	// Start browser daemon + push state snapshots
 	onMount(() => {
 		debugBus.log('event', 'app', 'P10 workspace mounted');
+		browserDaemon.start();
 		const interval = setInterval(async () => {
 			try {
 				const snapshot = debugBus.getSnapshot();
