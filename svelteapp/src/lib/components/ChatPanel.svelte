@@ -104,12 +104,26 @@
 						.join('\n');
 				}
 				case 'run_command': {
-					const parts = attrs.command.split(' ');
+					// Block server start commands — servers are already running
+					const cmd = attrs.command;
+					if (cmd.includes('npm run dev') || cmd.includes('npm start') || cmd.includes('node server')) {
+						return 'Skipped: dev servers are already running. No need to start them.';
+					}
+
+					const parts = cmd.split(' ');
 					const proc = await container.spawn(parts[0], parts.slice(1));
 					let output = '';
 					proc.output.pipeTo(new WritableStream({ write(c) { output += c; } }));
-					const code = await proc.exit;
-					return `Exit ${code}\n${output}`;
+
+					// Timeout after 30s for long-running commands
+					const code = await Promise.race([
+						proc.exit,
+						new Promise<number>((resolve) => setTimeout(() => {
+							proc.kill();
+							resolve(-1);
+						}, 30000))
+					]);
+					return code === -1 ? `Timeout (30s)\n${output}` : `Exit ${code}\n${output}`;
 				}
 				default:
 					return `Unknown tool: ${name}`;

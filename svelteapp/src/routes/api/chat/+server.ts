@@ -45,7 +45,9 @@ The client will parse these blocks and execute them in the WebContainer. The pre
 - After making changes, tell the user what was done and what they should see in the preview
 - When writing files, always include the COMPLETE file content — never use placeholders or "..."
 - Output one write_file block per file
-- For full-stack features, write the API endpoints first, then the frontend UI`;
+- For full-stack features, write the API endpoints first, then the frontend UI
+- NEVER run "npm run dev", "npm start", or "node server" — the dev servers are ALREADY running and will auto-reload
+- Frontend changes hot-reload automatically. Backend (server/) changes take effect on next request since Express is already running in memory`;
 
 export const POST: RequestHandler = async ({ request }) => {
 	const body = await request.json();
