@@ -25,6 +25,7 @@
 	let history = $state<Array<{ method: string; path: string; status: number; time: number }>>([]);
 	let discoveredRoutes = $state<RouteInfo[]>([]);
 	let discovering = $state(false);
+	let discoveryError = $state<string | null>(null);
 
 	onMount(() => {
 		const unsub = subscribe((s) => {
@@ -85,10 +86,12 @@
 
 			if (result.status === 200) {
 				discoveredRoutes = JSON.parse(result.body);
+				discoveryError = null;
 				debugBus.log('event', 'api-explorer', `Discovered ${discoveredRoutes.length} routes`, discoveredRoutes);
 				discoveryRetries = 0;
 			} else {
-				debugBus.log('warn', 'api-explorer', `/_routes returned ${result.status}`, result.body?.substring(0, 200));
+				discoveryError = `/_routes returned ${result.status}`;
+				debugBus.log('warn', 'api-explorer', discoveryError, result.body?.substring(0, 200));
 			}
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
@@ -250,7 +253,13 @@
 
 				{#if discoveredRoutes.length === 0}
 					<div class="text-muted italic py-2">
-						{discovering ? 'Discovering...' : 'No endpoints found'}
+						{#if discovering}
+							Discovering...
+						{:else if discoveryError}
+							<span class="text-error">{discoveryError}</span>
+						{:else}
+							No endpoints. Build an app first.
+						{/if}
 					</div>
 				{:else}
 					<div class="space-y-0.5">
