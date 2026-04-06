@@ -277,7 +277,14 @@ bot.onText(/\/board/, async (msg) => {
 			sections.push(`${icons[col]} *${col}* (${tasks.length})`);
 			for (const t of tasks) {
 				const prio = t.priority === 'urgent' ? '🔴 ' : t.priority === 'high' ? '🟠 ' : '';
-				sections.push(`  ${prio}${t.title.slice(0, 60)}`);
+				const pl = t.pipelineId ? ' 🔗' : '';
+				sections.push(`  ${prio}${t.title.slice(0, 60)}${pl}`);
+				if (t.subtasks?.length) {
+					for (const s of t.subtasks) {
+						const si = s.status === 'completed' ? '✅' : s.status === 'active' ? '🔄' : s.status === 'failed' ? '❌' : '○';
+						sections.push(`    ${si} ${s.role}: ${s.instruction.slice(0, 50)}`);
+					}
+				}
 			}
 			sections.push('');
 		}

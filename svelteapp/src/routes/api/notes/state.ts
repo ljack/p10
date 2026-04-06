@@ -15,7 +15,8 @@ export function generateNoteId(): string {
 export function getAllNotes(): Note[] {
 	return notesState.notes.map(note => ({
 		...note,
-		createdAt: new Date(note.createdAt)
+		createdAt: new Date(note.createdAt),
+		updatedAt: new Date(note.updatedAt)
 	}));
 }
 
@@ -34,4 +35,14 @@ export function deleteNoteById(id: string): boolean {
 	const initialLength = notesState.notes.length;
 	notesState.notes = notesState.notes.filter(note => note.id !== id);
 	return notesState.notes.length < initialLength;
+}
+
+/** Update existing notes to include both timestamps if missing */
+export function migrateNotesToIncludeTimestamps(): void {
+	const now = new Date();
+	notesState.notes = notesState.notes.map(note => ({
+		...note,
+		createdAt: note.createdAt || now,
+		updatedAt: note.updatedAt || now
+	}));
 }

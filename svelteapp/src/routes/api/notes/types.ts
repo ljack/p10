@@ -9,7 +9,8 @@ export const createNoteSchema = z.object({
 /** Zod schema for a complete note (includes ID and timestamps) */
 export const noteSchema = createNoteSchema.extend({
 	id: z.string(),
-	createdAt: z.date()
+	createdAt: z.date(),
+	updatedAt: z.date()
 });
 
 /** TypeScript types derived from Zod schemas */

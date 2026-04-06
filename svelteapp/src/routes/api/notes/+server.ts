@@ -1,11 +1,14 @@
 import type { RequestHandler } from './$types';
 import { json, error } from '@sveltejs/kit';
 import { createNoteSchema, type CreateNoteRequest, type GetNotesResponse, type CreateNoteResponse } from './types';
-import { getAllNotes, addNote, generateNoteId } from './state';
+import { getAllNotes, addNote, generateNoteId, migrateNotesToIncludeTimestamps } from './state';
 
 /** GET /api/notes — returns all notes */
 export const GET: RequestHandler = async () => {
 	try {
+		// Ensure existing notes have both timestamps
+		migrateNotesToIncludeTimestamps();
+		
 		const notes = getAllNotes();
 		
 		const response: GetNotesResponse = {
@@ -38,13 +41,14 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		const { title, content } = validationResult.data as CreateNoteRequest;
 		
-		// Create new note with generated ID and timestamp
+		// Create new note with generated ID and timestamps
 		const now = new Date();
 		const newNote = {
 			id: generateNoteId(),
 			title,
 			content,
-			createdAt: now
+			createdAt: now,
+			updatedAt: now
 		};
 
 		// Add to storage

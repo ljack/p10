@@ -19,6 +19,21 @@ const BOARD_FILE = join(DATA_DIR, 'board.json');
 export type TaskColumn = 'planned' | 'in-progress' | 'done' | 'failed' | 'blocked';
 export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent';
 
+export interface BoardSubtask {
+	id: string;
+	role: string;
+	instruction: string;
+	status: 'pending' | 'active' | 'completed' | 'failed' | 'skipped';
+	result?: string;
+}
+
+export interface TaskMeta {
+	type: 'git_commit' | 'files_changed' | 'error' | 'url' | 'note';
+	label: string;
+	data: string;
+	timestamp: string;
+}
+
 export interface TaskAnalysis {
 	rewrittenTitle?: string;
 	questions?: string[];
@@ -46,6 +61,9 @@ export interface BoardTask {
 	tags?: string[];
 	humanCreated?: boolean;
 	autoPickup?: boolean;
+	pipelineId?: string;
+	subtasks?: BoardSubtask[];
+	meta?: TaskMeta[];
 	analysis?: TaskAnalysis;
 	createdAt: string;
 	startedAt?: string;
@@ -121,6 +139,8 @@ export class TaskBoard {
 		parentId?: string;
 		tags?: string[];
 		humanCreated?: boolean;
+		pipelineId?: string;
+		subtasks?: BoardSubtask[];
 	}): BoardTask {
 		const task: BoardTask = {
 			id: opts.id || makeId(),
@@ -133,6 +153,8 @@ export class TaskBoard {
 			parentId: opts.parentId,
 			tags: opts.tags,
 			humanCreated: opts.humanCreated,
+			pipelineId: opts.pipelineId,
+			subtasks: opts.subtasks,
 			createdAt: new Date().toISOString(),
 		};
 
@@ -270,6 +292,39 @@ export class TaskBoard {
 		this.emitChange('board.task.analyzed', task);
 		console.log(`[board] 🔍 Analyzed: "${task.title.slice(0, 60)}"`);
 		return task;
+	}
+
+	/** Update a subtask's status within a board task (for pipeline tracking) */
+	updateSubtask(taskId: string, subtaskId: string, status: BoardSubtask['status'], result?: string): BoardTask | null {
+		const task = this.tasks.get(taskId);
+		if (!task || !task.subtasks) return null;
+
+		const sub = task.subtasks.find(s => s.id === subtaskId);
+		if (!sub) return null;
+
+		sub.status = status;
+		if (result) sub.result = result;
+
+		this.save();
+		this.emitChange('board.task.subtask_updated', task, { subtaskId, status });
+		return task;
+	}
+
+	/** Attach metadata to a task (git commits, files changed, etc.) */
+	addMeta(taskId: string, meta: TaskMeta): BoardTask | null {
+		const task = this.tasks.get(taskId);
+		if (!task) return null;
+
+		if (!task.meta) task.meta = [];
+		task.meta.push(meta);
+
+		this.save();
+		return task;
+	}
+
+	/** Find board task linked to a pipeline */
+	findByPipelineId(pipelineId: string): BoardTask | undefined {
+		return Array.from(this.tasks.values()).find(t => t.pipelineId === pipelineId);
 	}
 
 	/** Find task by title substring (for linking from PLAN.md etc.) */

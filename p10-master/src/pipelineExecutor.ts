@@ -16,6 +16,8 @@ import type { MessageRouter } from './router.js';
 import type { MeshEventBus } from './eventBus.js';
 import type { TaskPipeline, PipelineTask } from './decomposer.js';
 import { pipelineStorage } from './pipelineStorage.js';
+import { taskBoard } from './taskBoard.js';
+import type { BoardSubtask } from './taskBoard.js';
 import { makeId } from './types.js';
 
 const TASK_TIMEOUT = 120_000; // 2 minutes per task
@@ -133,11 +135,32 @@ export class PipelineExecutor {
 		pipelineStorage.store(pipeline);
 
 		console.log(`[executor] ▶ Pipeline "${pipeline.instruction}" — ${pipeline.tasks.length} tasks`);
+
+		// Create a board task for this pipeline with inline subtasks
+		const boardSubtasks: BoardSubtask[] = pipeline.tasks.map(t => ({
+			id: t.id,
+			role: t.role,
+			instruction: t.instruction,
+			status: t.status === 'completed' ? 'completed' : 'pending',
+		}));
+		const boardTask = taskBoard.add({
+			title: pipeline.instruction.slice(0, 120),
+			instruction: pipeline.instruction,
+			column: 'in-progress',
+			origin: { channel: 'pipeline' },
+			priority: 'high',
+			pipelineId: pipeline.id,
+			subtasks: boardSubtasks,
+			tags: ['pipeline'],
+		});
+		const boardTaskId = boardTask.id;
+
 		this.broadcastProgress(pipeline);
 		this.eventBus.emit('pipeline.started', 'master', {
 			pipelineId: pipeline.id,
 			instruction: pipeline.instruction,
 			taskCount: pipeline.tasks.length,
+			boardTaskId,
 		});
 
 		// Collect results from completed tasks for structured handoffs
@@ -197,6 +220,7 @@ export class PipelineExecutor {
 
 			// Execute the task
 			task.status = 'active';
+			taskBoard.updateSubtask(boardTaskId, task.id, 'active');
 			this.broadcastProgress(pipeline);
 			console.log(`[executor] 🔄 [${task.role}] ${task.instruction.slice(0, 80)}`);
 
@@ -205,6 +229,7 @@ export class PipelineExecutor {
 			if (result.error) {
 				task.status = 'failed';
 				task.result = result.error;
+				taskBoard.updateSubtask(boardTaskId, task.id, 'failed', result.error);
 				console.log(`[executor] ❌ [${task.role}] Failed: ${result.error}`);
 
 				// Attempt recovery via review_agent (unless this IS the review agent)
@@ -213,6 +238,7 @@ export class PipelineExecutor {
 					if (recovered) {
 						task.status = 'completed';
 						task.result = `Recovered: ${recovered.result?.slice(0, 200)}`;
+						taskBoard.updateSubtask(boardTaskId, task.id, 'completed', task.result);
 						taskResults.push({
 							role: task.role,
 							instruction: task.instruction,
@@ -229,6 +255,13 @@ export class PipelineExecutor {
 			} else {
 				task.status = 'completed';
 				task.result = result.result?.slice(0, 500) || 'Done';
+				taskBoard.updateSubtask(boardTaskId, task.id, 'completed', task.result?.slice(0, 200));
+				taskBoard.addMeta(boardTaskId, {
+					type: 'note',
+					label: `${task.role} result`,
+					data: task.result?.slice(0, 300) || 'Done',
+					timestamp: new Date().toISOString(),
+				});
 				taskResults.push({
 					role: task.role,
 					instruction: task.instruction,
@@ -250,6 +283,11 @@ export class PipelineExecutor {
 		}
 		pipeline.completedAt = new Date().toISOString();
 		pipelineStorage.store(pipeline);
+
+		// Move board task to final column
+		taskBoard.move(boardTaskId, pipeline.status === 'completed' ? 'done' : 'failed', {
+			result: `${pipeline.tasks.filter(t => t.status === 'completed').length}/${pipeline.tasks.length} tasks completed`,
+		});
 
 		this.broadcastProgress(pipeline);
 		this.eventBus.emit('pipeline.completed', 'master', {

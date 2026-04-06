@@ -16,7 +16,8 @@ Returns all notes with their metadata.
       "id": "note-1",
       "title": "My First Note", 
       "content": "This is the content of my first note.",
-      "createdAt": "2024-04-07T00:00:00.000Z"
+      "createdAt": "2024-04-07T00:00:00.000Z",
+      "updatedAt": "2024-04-07T00:00:00.000Z"
     }
   ],
   "count": 1
@@ -42,7 +43,8 @@ Creates a new note with auto-generated ID and timestamps.
     "id": "note-1",
     "title": "My Note Title",
     "content": "The content of my note", 
-    "createdAt": "2024-04-07T00:00:00.000Z"
+    "createdAt": "2024-04-07T00:00:00.000Z",
+    "updatedAt": "2024-04-07T00:00:00.000Z"
   }
 }
 ```
@@ -186,6 +188,7 @@ The notes data model includes:
 - `title`: Note title (string, 1-255 chars)
 - `content`: Note content (string, max 10,000 chars) 
 - `createdAt`: Creation timestamp (ISO date)
+- `updatedAt`: Last update timestamp (ISO date)
 
 ## Storage
 

@@ -890,7 +890,18 @@ export default function (pi: ExtensionAPI) {
 					for (const t of tasks) {
 						const prio = t.priority === 'urgent' ? '🔴 ' : t.priority === 'high' ? '🟠 ' : t.priority === 'low' ? '🔵 ' : '';
 						const origin = t.origin?.channel ? ` [${t.origin.channel}]` : '';
-						lines.push(`  ${prio}${t.title.slice(0, 70)}${origin}`);
+						const pipeline = t.pipelineId ? ' [pipeline]' : '';
+						lines.push(`  ${prio}${t.title.slice(0, 70)}${origin}${pipeline}`);
+						// Show inline subtasks if present
+						if (t.subtasks?.length) {
+							for (const s of t.subtasks) {
+								const sIcon = s.status === 'completed' ? '✅' :
+									s.status === 'active' ? '🔄' :
+									s.status === 'failed' ? '❌' :
+									s.status === 'skipped' ? '⏭' : '○';
+								lines.push(`     ${sIcon} [${s.role}] ${s.instruction.slice(0, 60)}`);
+							}
+						}
 					}
 					lines.push("");
 				}

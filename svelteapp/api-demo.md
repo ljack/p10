@@ -47,13 +47,15 @@ curl http://localhost:5173/api/notes
       "id": "note-1",
       "title": "My First Note",
       "content": "This is the content of my first note.",
-      "createdAt": "2024-04-07T00:00:00.000Z"
+      "createdAt": "2024-04-07T00:00:00.000Z",
+      "updatedAt": "2024-04-07T00:00:00.000Z"
     },
     {
       "id": "note-2", 
       "title": "Shopping List",
       "content": "Milk, Eggs, Bread, Coffee",
-      "createdAt": "2024-04-07T00:01:00.000Z"
+      "createdAt": "2024-04-07T00:01:00.000Z",
+      "updatedAt": "2024-04-07T00:01:00.000Z"
     }
   ],
   "count": 2
@@ -67,7 +69,8 @@ curl http://localhost:5173/api/notes
     "id": "note-1",
     "title": "My First Note",
     "content": "This is the content of my first note.",
-    "createdAt": "2024-04-07T00:00:00.000Z"
+    "createdAt": "2024-04-07T00:00:00.000Z",
+    "updatedAt": "2024-04-07T00:00:00.000Z"
   }
 }
 ```

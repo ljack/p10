@@ -139,10 +139,19 @@
 						<div class="flex items-start justify-between">
 							<div class="flex-1">
 								<h3 class="text-xl font-semibold text-foreground mb-2">{note.title}</h3>
-								<div class="flex items-center text-sm text-muted-foreground">
-									<time datetime={note.createdAt.toString()}>
-										Created {formatDate(note.createdAt)}
-									</time>
+								<div class="text-sm text-muted-foreground space-y-1">
+									<div class="flex items-center">
+										<span class="font-medium mr-2">Created:</span>
+										<time datetime={note.createdAt.toString()}>
+											{formatDate(note.createdAt)}
+										</time>
+									</div>
+									<div class="flex items-center">
+										<span class="font-medium mr-2">Updated:</span>
+										<time datetime={note.updatedAt.toString()}>
+											{formatDate(note.updatedAt)}
+										</time>
+									</div>
 								</div>
 							</div>
 							<button
