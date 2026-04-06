@@ -8,7 +8,9 @@
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import { DynamicBorder } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
+import { Text, Container, Spacer, truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 import { readFileSync, writeFileSync, existsSync, openSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { join } from "node:path";
@@ -226,10 +228,37 @@ function makeId(): string {
 	return Math.random().toString(36).slice(2, 10) + '-' + Date.now().toString(36);
 }
 
+function formatUptime(seconds: number): string {
+	if (seconds < 60) return `${Math.round(seconds)}s`;
+	const m = Math.floor(seconds / 60);
+	if (m < 60) return `${m}m`;
+	const h = Math.floor(m / 60);
+	return `${h}h ${m % 60}m`;
+}
+
 let meshWs: WebSocket | null = null;
 let meshHeartbeatTimer: ReturnType<typeof setInterval> | null = null;
 let meshReconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let meshCtx: any = null; // store extension context for message handlers
+let meshConnected = false;
+
+// --- Status line ---
+
+function updateStatusLine() {
+	const ctx = meshCtx;
+	if (!ctx) return;
+	const theme = ctx.ui.theme;
+
+	if (!meshConnected) {
+		ctx.ui.setStatus("p10-mesh", theme.fg("dim", "P10 ○ offline"));
+		return;
+	}
+
+	const id = PI_SESSION_ID.replace('pi-cli-', '').slice(0, 12);
+	const dot = theme.fg("success", "●");
+	const label = theme.fg("dim", ` P10 ${id}`);
+	ctx.ui.setStatus("p10-mesh", dot + label);
+}
 
 function getMasterWsUrl(): string | null {
 	if (!existsSync(DISCOVERY_FILE)) return null;
@@ -292,6 +321,8 @@ function connectMeshWs(ctx: any) {
 
 		meshWs.onclose = () => {
 			stopMeshHeartbeat();
+			meshConnected = false;
+			updateStatusLine();
 			// Auto-reconnect after 5s
 			if (!meshReconnectTimer) {
 				meshReconnectTimer = setTimeout(() => {
@@ -345,7 +376,8 @@ function handleMeshWsMessage(msg: any) {
 
 	switch (msg.type) {
 		case 'register_ack':
-			ctx.ui.notify(`📡 Mesh daemon registered: ${PI_SESSION_ID}`, "info");
+			meshConnected = true;
+			updateStatusLine();
 			break;
 
 		case 'query': {
@@ -420,6 +452,9 @@ function handleMeshWsMessage(msg: any) {
 export default function (pi: ExtensionAPI) {
 	// Notify on load — auto-start mesh if not running
 	pi.on("session_start", async (_event, ctx) => {
+		// Set initial status
+		updateStatusLine();
+
 		// Auto-start mesh servers if they're not running
 		const meshReady = await autoStartMesh(ctx);
 
@@ -480,8 +515,57 @@ export default function (pi: ExtensionAPI) {
 			];
 			return {
 				content: [{ type: "text", text: lines.join("\n") }],
-				details: {},
+				details: { daemons: data.daemons, master: data.master, piSessions },
 			};
+		},
+
+		renderResult(result, { expanded }, theme) {
+			const d = result.details as any;
+			if (!d?.daemons) return new Text(result.content[0]?.text || 'no data', 0, 0);
+
+			const daemons: any[] = d.daemons;
+			const master = d.master;
+
+			// Deduplicate daemons by name (keep newest heartbeat)
+			const seen = new Map<string, any>();
+			for (const dm of daemons) {
+				const existing = seen.get(dm.name);
+				if (!existing || new Date(dm.lastHeartbeat) > new Date(existing.lastHeartbeat)) {
+					seen.set(dm.name, dm);
+				}
+			}
+			const unique = Array.from(seen.values());
+
+			// Header
+			const uptime = formatUptime(master.uptime);
+			const header = theme.fg("accent", theme.bold("P10 Mesh"))
+				+ theme.fg("dim", ` │ port ${master.port} │ up ${uptime} │ ${unique.length} daemon(s)`);
+
+			const container = new Container();
+			container.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)));
+			container.addChild(new Text(header, 1, 0));
+			container.addChild(new Spacer(1));
+
+			// Daemon rows
+			for (const dm of unique) {
+				const icon = dm.type === 'pi' ? '🤖' : dm.type === 'pi-cli' ? '💻' : dm.type === 'browser' ? '🌐' : '🔌';
+				const dot = dm.status === 'alive' ? theme.fg("success", "●") : theme.fg("error", "●");
+				const name = theme.fg("text", theme.bold(dm.name));
+				const type = theme.fg("dim", dm.type);
+				const tldr = theme.fg("muted", dm.tldr.slice(0, 60));
+
+				const line = `  ${dot} ${icon} ${name} ${type}  ${tldr}`;
+				container.addChild(new Text(line, 0, 0));
+
+				// Show capabilities when expanded
+				if (expanded && dm.capabilities?.length > 0) {
+					const caps = dm.capabilities.map((c: string) => theme.fg("dim", c)).join(theme.fg("muted", " · "));
+					container.addChild(new Text(`      ${caps}`, 0, 0));
+				}
+			}
+
+			container.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)));
+			return container;
 		},
 	});
 
@@ -908,10 +992,58 @@ export default function (pi: ExtensionAPI) {
 
 				if (data.stats?.total === 0) lines.push("Board is empty.");
 
-				return { content: [{ type: "text", text: lines.join("\n") }], details: {} };
+				return {
+					content: [{ type: "text", text: lines.join("\n") }],
+					details: { board: data },
+				};
 			} catch (err: any) {
 				return { content: [{ type: "text", text: `Error: ${err.message}` }], details: {} };
 			}
+		},
+
+		renderResult(result, { expanded }, theme) {
+			const board = (result.details as any)?.board;
+			if (!board?.stats) return new Text(result.content[0]?.text || 'no data', 0, 0);
+
+			const container = new Container();
+			container.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)));
+
+			const total = board.stats.total || 0;
+			const header = theme.fg("accent", theme.bold("Task Board"))
+				+ theme.fg("dim", ` │ ${total} task(s)`);
+			container.addChild(new Text(header, 1, 0));
+			container.addChild(new Spacer(1));
+
+			const colConfig: Array<{ key: string; icon: string; label: string; color: string }> = [
+				{ key: 'planned', icon: '○', label: 'Planned', color: 'muted' },
+				{ key: 'in-progress', icon: '▶', label: 'In Progress', color: 'accent' },
+				{ key: 'done', icon: '✓', label: 'Done', color: 'success' },
+				{ key: 'failed', icon: '✗', label: 'Failed', color: 'error' },
+				{ key: 'blocked', icon: '⚠', label: 'Blocked', color: 'warning' },
+			];
+
+			for (const col of colConfig) {
+				const tasks = board[col.key] || [];
+				if (tasks.length === 0) continue;
+
+				const colHeader = theme.fg(col.color as any, `  ${col.icon} ${col.label} (${tasks.length})`);
+				container.addChild(new Text(colHeader, 0, 0));
+
+				for (const t of tasks) {
+					const prio = t.priority === 'urgent' ? theme.fg('error', '● ') :
+						t.priority === 'high' ? theme.fg('warning', '● ') : '  ';
+					const title = theme.fg('text', t.title.slice(0, 60));
+					const origin = t.origin?.channel ? theme.fg('dim', ` [${t.origin.channel}]`) : '';
+					container.addChild(new Text(`    ${prio}${title}${origin}`, 0, 0));
+
+					if (expanded && t.result) {
+						container.addChild(new Text(theme.fg('dim', `      → ${t.result.slice(0, 100)}`), 0, 0));
+					}
+				}
+			}
+
+			container.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)));
+			return container;
 		},
 	});
 
