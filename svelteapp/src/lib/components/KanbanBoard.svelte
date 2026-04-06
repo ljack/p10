@@ -165,6 +165,17 @@
 			<span class="text-muted text-xs">{board.stats.total} task{board.stats.total !== 1 ? 's' : ''}</span>
 		{/if}
 		<div class="flex-1"></div>
+		<!-- Scope filter -->
+		<div class="flex gap-0.5 mr-2">
+			{#each [['all', 'All'], ['project', '📦 App'], ['platform', '⚙️ P10']] as [value, label]}
+				<button
+					onclick={() => scopeFilter = value as any}
+					class="px-1.5 py-0.5 text-xs rounded transition-colors {scopeFilter === value
+						? 'bg-accent-dim text-accent'
+						: 'text-muted hover:text-foreground'}"
+				>{label}</button>
+			{/each}
+		</div>
 		<button
 			onclick={fetchBoard}
 			class="text-muted hover:text-foreground text-xs px-1 transition-colors"
@@ -188,7 +199,8 @@
 		{:else if board}
 			<div class="flex h-full gap-0">
 				{#each columns as col}
-					{@const tasks = board[col.key] || []}
+					{@const allTasks = board[col.key] || []}
+					{@const tasks = scopeFilter === 'all' ? allTasks : allTasks.filter(t => (t.scope || 'project') === scopeFilter)}
 					{@const count = tasks.length}
 					<!-- Column -->
 					<div class="flex-1 min-w-[160px] flex flex-col border-r border-panel-border last:border-r-0">
@@ -237,6 +249,9 @@
 
 									<!-- Meta row -->
 									<div class="flex items-center gap-1.5 mt-1 text-muted">
+										{#if scopeFilter === 'all'}
+											<span class="shrink-0" title={task.scope === 'platform' ? 'P10 platform' : 'Project app'}>{task.scope === 'platform' ? '⚙️' : '📦'}</span>
+										{/if}
 										<span title={task.origin.channel}>{channelIcon(task.origin.channel)}</span>
 										{#if task.origin.userName}
 											<span class="truncate max-w-[60px]">{task.origin.userName}</span>
