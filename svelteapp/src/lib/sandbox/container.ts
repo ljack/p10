@@ -74,9 +74,41 @@ export function getInstance(): WebContainer | null {
 	return instance;
 }
 
+/** Reset the container instance (useful for recovery from errors) */
+export async function resetContainer(): Promise<void> {
+	if (instance) {
+		try {
+			await instance.teardown();
+		} catch (err) {
+			console.warn('[container] Error during teardown:', err);
+		}
+		instance = null;
+	}
+	booting = false;
+	setState({ 
+		status: 'idle', 
+		serverStatus: 'stopped', 
+		serverUrl: null, 
+		servers: [], 
+		error: null 
+	});
+	console.log('[container] Container reset completed');
+}
+
 /** Boot the WebContainer and scaffold the project */
 export async function boot(): Promise<WebContainer> {
-	if (instance) return instance;
+	if (instance) {
+		// Check if existing instance is healthy
+		try {
+			// Test if instance is still functional
+			await instance.fs.readdir('/');
+			return instance;
+		} catch {
+			// Instance is broken, reset it
+			console.log('[container] Existing instance broken, resetting...');
+			await resetContainer();
+		}
+	}
 	if (booting) {
 		return new Promise((resolve, reject) => {
 			const unsub = subscribe((s) => {
@@ -90,7 +122,20 @@ export async function boot(): Promise<WebContainer> {
 	setState({ status: 'booting', error: null });
 
 	try {
-		instance = await WebContainer.boot();
+		try {
+			instance = await WebContainer.boot();
+		} catch (bootErr) {
+			// Handle 'single instance' error by attempting reset
+			if (bootErr.message?.includes('single WebContainer instance')) {
+				console.log('[container] Single instance error, attempting recovery...');
+				await resetContainer();
+				// Retry after reset
+				instance = await WebContainer.boot();
+			} else {
+				throw bootErr;
+			}
+		}
+		
 		await instance.mount(starterFiles);
 
 		setState({ status: 'booting' });
@@ -457,7 +502,7 @@ app.use((req, res) => {
 
 const PORT = 3001;
 app.listen(PORT, () => {
-  console.log(\`🚀 API server running on http://localhost:\${PORT}\`);
+  console.log('🚀 API server running on http://localhost:' + PORT);
   console.log('📋 Available endpoints:');
   console.log('   GET    /api/health');
   console.log('   GET    /api/_routes');

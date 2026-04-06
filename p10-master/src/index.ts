@@ -7,6 +7,8 @@ import { MASTER_DISCOVERY_FILE, DEFAULT_PORT, makeId } from './types.js';
 import type { DaemonMessage } from './types.js';
 import { IntegrationManager } from './integrations.js';
 import { MessageTracker } from './messageTracker.js';
+import { decompose } from './decomposer.js';
+import { pipelineStorage } from './pipelineStorage.js';
 import type { DaemonMessage, RegisterPayload, HeartbeatPayload } from './types.js';
 
 const PORT = parseInt(process.env.P10_PORT || String(DEFAULT_PORT));
@@ -16,6 +18,38 @@ const router = new MessageRouter();
 router.setRegistry(registry);
 const integrations = new IntegrationManager();
 const tracker = new MessageTracker();
+
+// Pi CLI session tracking
+const piCliSessions = new Map<string, { id: string; userAgent: string; lastSeen: Date; created: Date; }>();
+function trackPiSession(req: any): string {
+	// Use the custom session ID from pi extension, or create a more unique fallback
+	const sessionId = req.headers['x-pi-session-id'] || 
+					 `pi-fallback-${req.socket?.remotePort || Math.random().toString(36).slice(2)}-${Date.now()}`;
+	
+	console.log(`[master] Tracking pi session: ${sessionId} (UA: ${req.headers['user-agent']})`);
+	
+	const isNewSession = !piCliSessions.has(sessionId);
+	piCliSessions.set(sessionId, {
+		id: sessionId,
+		userAgent: req.headers['user-agent'] || 'unknown',
+		lastSeen: new Date(),
+		created: piCliSessions.get(sessionId)?.created || new Date()
+	});
+	
+	if (isNewSession) {
+		console.log(`[master] 🆕 New pi session: ${sessionId}`);
+	}
+	return sessionId;
+}
+function cleanupStalePiSessions() {
+	const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+	for (const [id, session] of piCliSessions) {
+		if (session.lastSeen < fiveMinutesAgo) {
+			piCliSessions.delete(id);
+		}
+	}
+}
+setInterval(cleanupStalePiSessions, 60000); // Cleanup every minute
 
 // HTTP server for health/status
 const httpServer = createServer((req, res) => {
@@ -28,11 +62,28 @@ const httpServer = createServer((req, res) => {
 	}
 
 	if (req.url === '/status') {
+		// Track this pi session - be more permissive to catch all pi CLI requests
+		if (req.headers['x-pi-session-id'] || 
+			req.headers['user-agent']?.includes('pi-cli') ||
+			req.headers['user-agent']?.includes('node') || 
+			req.headers.referer?.includes('pi')) {
+			trackPiSession(req);
+			console.log(`[master] Pi session detected in /status request`);
+		}
+		
 		const daemons = registry.getAll();
+		const piDaemon = daemons.find(d => d.type === 'pi');
+		const activePiSessions = piCliSessions.size;
+		
 		res.end(JSON.stringify({
 			master: { status: 'running', port: PORT, uptime: process.uptime() },
 			daemons,
-			systemTldr: registry.getSystemTldr(),
+			piSessions: {
+				activeSessions: activePiSessions,
+				daemonStatus: piDaemon ? piDaemon.status : 'not connected',
+				lastSessionIds: Array.from(piCliSessions.keys()).slice(-3)
+			},
+			systemTldr: registry.getSystemTldr() + (activePiSessions > 0 ? ` | ${activePiSessions} pi CLI session(s)` : ''),
 			timestamp: new Date().toISOString()
 		}, null, 2));
 		return;
@@ -43,8 +94,36 @@ const httpServer = createServer((req, res) => {
 		return;
 	}
 
+	// Pi CLI quit endpoint
+	if (req.method === 'POST' && req.url === '/pi-quit') {
+		let body = '';
+		req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+		req.on('end', () => {
+			try {
+				const { sessionId } = JSON.parse(body);
+				if (sessionId && piCliSessions.has(sessionId)) {
+					const session = piCliSessions.get(sessionId);
+					piCliSessions.delete(sessionId);
+					const duration = session ? Math.round((Date.now() - session.created.getTime()) / 1000) : 0;
+					console.log(`[master] 📴 Pi session quit: ${sessionId} (${duration}s session)`);
+					res.end(JSON.stringify({ success: true, message: 'Session removed', duration }));
+				} else {
+					res.end(JSON.stringify({ success: false, message: 'Session not found' }));
+				}
+			} catch (err: any) {
+				res.statusCode = 400;
+				res.end(JSON.stringify({ error: err.message }));
+			}
+		});
+		return;
+	}
+
 	// REST API for fire-and-forget operations (no WebSocket needed)
 	if (req.method === 'POST' && req.url === '/task') {
+		// Track pi session - always track task requests as they're likely from pi CLI
+		trackPiSession(req);
+		console.log(`[master] Pi session tracked in /task request`);
+		
 		let body = '';
 		req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
 		req.on('end', () => {
@@ -80,6 +159,10 @@ const httpServer = createServer((req, res) => {
 	}
 
 	if (req.method === 'POST' && req.url === '/query') {
+		// Track pi session - always track query requests as they're likely from pi CLI
+		trackPiSession(req);
+		console.log(`[master] Pi session tracked in /query request`);
+		
 		let body = '';
 		req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
 		req.on('end', () => {

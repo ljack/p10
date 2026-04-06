@@ -23,12 +23,20 @@ function getMasterUrl(): string | null {
 	}
 }
 
+// Generate a unique session ID for this pi CLI instance
+const PI_SESSION_ID = `pi-cli-${process.pid}-${Date.now().toString(36)}`;
+
 async function masterFetch(path: string, options?: RequestInit): Promise<any> {
 	const url = getMasterUrl();
 	if (!url) throw new Error("Master Daemon not running. Start with: ./start-mesh.sh");
 	const resp = await fetch(`${url}${path}`, {
 		...options,
-		headers: { "Content-Type": "application/json", ...options?.headers },
+		headers: { 
+			"Content-Type": "application/json", 
+			"X-Pi-Session-Id": PI_SESSION_ID,
+			"User-Agent": `pi-cli/${process.pid}`,
+			...options?.headers 
+		},
 	});
 	return resp.json();
 }
@@ -42,6 +50,33 @@ export default function (pi: ExtensionAPI) {
 				const health = await masterFetch("/health");
 				if (health.status === "ok") {
 					ctx.ui.notify("🔗 P10 Mesh connected", "info");
+					
+					// Register quit handlers for immediate session cleanup
+					const notifyQuit = async () => {
+						try {
+							await masterFetch("/pi-quit", {
+								method: "POST",
+								body: JSON.stringify({ sessionId: PI_SESSION_ID })
+							});
+							console.log('[p10-mesh] Session cleanup sent to master');
+						} catch { /* ignore errors during quit */ }
+					};
+					
+					// Handle different quit scenarios
+					process.on('SIGINT', notifyQuit);
+					process.on('SIGTERM', notifyQuit);
+					process.on('beforeExit', notifyQuit);
+					
+					// Also hook into pi's own exit mechanisms if available
+					if (typeof process.once === 'function') {
+						process.once('exit', () => {
+							// Synchronous cleanup as backup
+							try {
+								// Use synchronous fetch if possible
+								require('child_process').execSync(`curl -s -X POST -H 'Content-Type: application/json' -d '{"sessionId":"${PI_SESSION_ID}"}' ${url}/pi-quit`, {timeout: 1000});
+							} catch { /* ignore */ }
+						});
+					}
 				}
 			} catch {
 				ctx.ui.notify("○ P10 Mesh offline", "info");
@@ -58,6 +93,8 @@ export default function (pi: ExtensionAPI) {
 		parameters: Type.Object({}),
 		async execute() {
 			const data = await masterFetch("/status");
+			const piSessions = data.piSessions || { activeSessions: 0, daemonStatus: 'unknown' };
+			
 			const lines = [
 				`Master uptime: ${Math.round(data.master.uptime)}s`,
 				`Daemons: ${data.daemons.length}`,
@@ -65,6 +102,9 @@ export default function (pi: ExtensionAPI) {
 				...data.daemons.map((d: any) =>
 					`${d.status === "alive" ? "🟢" : "🔴"} ${d.name} (${d.type}) — ${d.tldr}`
 				),
+				"",
+				`Pi CLI Sessions: ${piSessions.activeSessions} active`,
+				`Pi Daemon: ${piSessions.daemonStatus}`,
 				"",
 				`System TLDR: ${data.systemTldr}`,
 			];
@@ -215,10 +255,12 @@ export default function (pi: ExtensionAPI) {
 			}
 			try {
 				const data = await masterFetch("/status");
+				const piSessions = data.piSessions || { activeSessions: 0, daemonStatus: 'unknown' };
 				const lines = data.daemons.map((d: any) =>
 					`  ${d.status === "alive" ? "🟢" : "🔴"} ${d.name}: ${d.tldr}`
 				);
-				ctx.ui.notify(`🔗 Mesh: ${data.daemons.length} daemon(s)\n${lines.join("\n")}`, "info");
+				const piInfo = `\n\n📱 Pi CLI Sessions: ${piSessions.activeSessions} active\n🔧 Pi Daemon: ${piSessions.daemonStatus}`;
+				ctx.ui.notify(`🔗 Mesh: ${data.daemons.length} daemon(s)\n${lines.join("\n")}${piInfo}`, "info");
 			} catch (err: any) {
 				ctx.ui.notify(`❌ ${err.message}`, "error");
 			}
@@ -234,6 +276,21 @@ export default function (pi: ExtensionAPI) {
 				ctx.ui.notify(`📊 ${data.snapshot?.tldr || "No snapshot"}`, "info");
 			} catch {
 				ctx.ui.notify("P10 app not running", "warn");
+			}
+		},
+	});
+
+	pi.registerCommand("mesh-quit", {
+		description: "Test: Send quit notification to mesh (for testing session cleanup)",
+		handler: async (_args, ctx) => {
+			try {
+				await masterFetch("/pi-quit", {
+					method: "POST",
+					body: JSON.stringify({ sessionId: PI_SESSION_ID })
+				});
+				ctx.ui.notify(`🗺 Session ${PI_SESSION_ID} quit notification sent`, "info");
+			} catch (err: any) {
+				ctx.ui.notify(`❌ Failed to send quit: ${err.message}`, "error");
 			}
 		},
 	});

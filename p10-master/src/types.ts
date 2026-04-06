@@ -22,8 +22,12 @@ export type DaemonMessageType =
 	// Commands
 	| 'task'
 	| 'task_result'
+	| 'task_with_role'
 	| 'query'
 	| 'query_response'
+	// Pipelines
+	| 'pipeline_progress'
+	| 'pipeline_status'
 	// State
 	| 'state_snapshot'
 	| 'state_request'
@@ -81,6 +85,24 @@ export interface SecurityCheck {
 	risk: RiskLevel;
 	requiresApproval: boolean;
 	reason: string;
+}
+
+export interface TaskWithRolePayload extends TaskPayload {
+	role: string; // Agent role for this task
+	context?: string; // Additional context for the role
+}
+
+export interface PipelineProgressPayload {
+	pipelineId: string;
+	currentTaskIndex: number;
+	totalTasks: number;
+	status: string;
+	tasks: Array<{
+		id: string;
+		role: string;
+		instruction: string;
+		status: string;
+	}>;
 }
 
 // Well-known discovery file
