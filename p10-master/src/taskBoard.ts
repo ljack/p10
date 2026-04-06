@@ -8,6 +8,13 @@
 
 import { makeId } from './types.js';
 import type { MeshEventBus } from './eventBus.js';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const DATA_DIR = join(__dirname, '..', 'data');
+const BOARD_FILE = join(DATA_DIR, 'board.json');
 
 export type TaskColumn = 'planned' | 'in-progress' | 'done' | 'failed' | 'blocked';
 export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent';
@@ -64,8 +71,41 @@ export class TaskBoard {
 	private tasks = new Map<string, BoardTask>();
 	private eventBus: MeshEventBus | null = null;
 
+	constructor() {
+		this.load();
+	}
+
 	setEventBus(bus: MeshEventBus) {
 		this.eventBus = bus;
+	}
+
+	/** Load board state from disk */
+	private load() {
+		try {
+			if (!existsSync(BOARD_FILE)) return;
+			const data = JSON.parse(readFileSync(BOARD_FILE, 'utf-8'));
+			if (Array.isArray(data.tasks)) {
+				for (const task of data.tasks) {
+					this.tasks.set(task.id, task);
+				}
+				console.log(`[board] Loaded ${this.tasks.size} tasks from ${BOARD_FILE}`);
+			}
+		} catch (err: any) {
+			console.warn(`[board] Failed to load board.json: ${err.message} — starting empty`);
+		}
+	}
+
+	/** Save board state to disk */
+	private save() {
+		try {
+			if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
+			writeFileSync(BOARD_FILE, JSON.stringify({
+				tasks: Array.from(this.tasks.values()),
+				savedAt: new Date().toISOString(),
+			}, null, 2));
+		} catch (err: any) {
+			console.error(`[board] Failed to save board.json: ${err.message}`);
+		}
 	}
 
 	/** Add a new task to the board */
@@ -96,6 +136,7 @@ export class TaskBoard {
 		};
 
 		this.tasks.set(task.id, task);
+		this.save();
 		this.emitChange('board.task.added', task);
 		console.log(`[board] + ${task.column}: "${task.title.slice(0, 60)}"`);
 		return task;
@@ -123,6 +164,7 @@ export class TaskBoard {
 
 		// Prune old done/failed tasks
 		this.pruneCompleted();
+		this.save();
 
 		return task;
 	}
@@ -133,6 +175,7 @@ export class TaskBoard {
 		if (!task) return null;
 
 		Object.assign(task, updates);
+		this.save();
 		this.emitChange('board.task.updated', task);
 		return task;
 	}
@@ -143,6 +186,7 @@ export class TaskBoard {
 		if (!task) return false;
 
 		this.tasks.delete(taskId);
+		this.save();
 		this.emitChange('board.task.removed', task);
 		return true;
 	}
@@ -221,6 +265,7 @@ export class TaskBoard {
 			task.tags = [...new Set([...(task.tags || []), ...analysis.suggestedTags])];
 		}
 
+		this.save();
 		this.emitChange('board.task.analyzed', task);
 		console.log(`[board] 🔍 Analyzed: "${task.title.slice(0, 60)}"`);
 		return task;

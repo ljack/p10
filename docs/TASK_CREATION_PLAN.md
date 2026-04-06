@@ -6,12 +6,12 @@
 
 ## Progress
 
-- [ ] **A1** — Quick inline input on web board UI
-- [ ] **A2** — Guided `/add` flow: Telegram
-- [ ] **A3** — Guided `/add` flow: Pi CLI (`mesh_add_task` tool)
-- [ ] **A4** — Guided `/add` flow: Browser chat command
-- [ ] **B1** — Task Analyst agent (auto-enriches new human tasks after 10s)
-- [ ] **B2** — Agent self-created tasks (agents can decide to add tasks)
+- [x] **A1** — Quick inline input on web board UI (KanbanBoard.svelte)
+- [x] **A2** — Guided `/add` flow: Telegram (3-step: title → description → priority)
+- [x] **A3** — Guided `/add` flow: Pi CLI (`mesh_add_task` tool)
+- [x] **A4** — Guided `/add` flow: Browser chat (`/add` + `/board` commands)
+- [x] **B1** — Task Analyst agent (auto-enriches new human tasks after 10s)
+- [x] **B2** — Agent self-created tasks (agents can POST to /board/task with origin: agent)
 - [ ] **C1** — Backlog grooming agent (archive to memory, rebirth when relevant)
 
 ## Architecture
