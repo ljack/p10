@@ -102,7 +102,13 @@ function getMasterUrl(): string | null {
 }
 
 // Generate a unique session ID for this pi CLI instance
-const PI_SESSION_ID = `pi-cli-${process.pid}-${Date.now().toString(36)}`;
+const PI_SESSION_ID = `pi-cli-${process.pid}-${generateSlug()}`;
+
+function generateSlug(): string {
+	const adj = ['swift','calm','bold','keen','warm','cool','wild','wise','fair','fast','deep','rare','epic','vast','lucky','cozy'];
+	const noun = ['fox','owl','lynx','wolf','bear','hawk','crow','deer','frog','seal','swan','puma','orca','raven','ember','spark'];
+	return adj[Math.floor(Math.random() * adj.length)] + '-' + noun[Math.floor(Math.random() * noun.length)];
+}
 
 async function masterFetch(path: string, options?: RequestInit): Promise<any> {
 	const url = getMasterUrl();
@@ -254,9 +260,9 @@ function updateStatusLine() {
 		return;
 	}
 
-	const id = PI_SESSION_ID.replace('pi-cli-', '').slice(0, 12);
+	const slug = PI_SESSION_ID.split('-').slice(2).join('-'); // e.g. "32294-calm-fox"
 	const dot = theme.fg("success", "●");
-	const label = theme.fg("dim", ` P10 ${id}`);
+	const label = theme.fg("dim", ` P10 ${slug}`);
 	ctx.ui.setStatus("p10-mesh", dot + label);
 }
 

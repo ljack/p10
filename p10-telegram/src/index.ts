@@ -21,7 +21,13 @@ import { readFileSync, existsSync } from 'fs';
 
 // Config — load from config.json or env vars
 const MASTER_DISCOVERY_FILE = '/tmp/p10-master.json';
-const DAEMON_ID = 'telegram-' + Math.random().toString(36).slice(2, 6);
+const DAEMON_ID = 'telegram-' + generateSlug();
+
+function generateSlug(): string {
+	const adj = ['swift','calm','bold','keen','warm','cool','wild','wise','fair','fast','deep','rare','epic','vast','lucky','cozy'];
+	const noun = ['fox','owl','lynx','wolf','bear','hawk','crow','deer','frog','seal','swan','puma','orca','raven','ember','spark'];
+	return adj[Math.floor(Math.random() * adj.length)] + '-' + noun[Math.floor(Math.random() * noun.length)];
+}
 const CONFIG_FILE = new URL('../config.json', import.meta.url).pathname;
 
 interface TelegramConfig {

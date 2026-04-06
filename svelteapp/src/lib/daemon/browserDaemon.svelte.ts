@@ -26,7 +26,13 @@ function discoverMasterUrl(): string {
 }
 
 const MASTER_WS_URL = discoverMasterUrl();
-const DAEMON_ID = 'browser-' + Math.random().toString(36).slice(2, 6);
+const DAEMON_ID = 'browser-' + generateSlug();
+
+function generateSlug(): string {
+	const adj = ['swift','calm','bold','keen','warm','cool','wild','wise','fair','fast','deep','rare','epic','vast','lucky','cozy'];
+	const noun = ['fox','owl','lynx','wolf','bear','hawk','crow','deer','frog','seal','swan','puma','orca','raven','ember','spark'];
+	return adj[Math.floor(Math.random() * adj.length)] + '-' + noun[Math.floor(Math.random() * noun.length)];
+}
 
 class BrowserDaemon {
 	private client: WsClient | null = null;
