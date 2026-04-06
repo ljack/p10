@@ -2,12 +2,12 @@
 
 class SettingsStore {
 	apiKey = $state('');
-	model = $state('claude-sonnet-4-6-20250627');
+	model = $state('claude-sonnet-4-6');
 
 	constructor() {
 		if (typeof window !== 'undefined') {
 			this.apiKey = localStorage.getItem('p10_api_key') || '';
-			this.model = localStorage.getItem('p10_model') || 'claude-sonnet-4-6-20250627';
+			this.model = localStorage.getItem('p10_model') || 'claude-sonnet-4-6';
 		}
 	}
 

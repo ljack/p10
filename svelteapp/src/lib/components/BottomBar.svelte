@@ -243,9 +243,11 @@
 							onchange={(e) => settings.setModel((e.target as HTMLSelectElement).value)}
 							class="bg-background border border-panel-border text-foreground text-xs px-2 py-1 rounded outline-none focus:border-accent"
 						>
-							<option value="claude-sonnet-4-6-20250627">Claude Sonnet 4.6</option>
-							<option value="claude-opus-4-20250715">Claude Opus 4.6</option>
-							<option value="claude-haiku-4-20250627">Claude Haiku 4</option>
+							<option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
+							<option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5</option>
+							<option value="claude-opus-4-6">Claude Opus 4.6</option>
+							<option value="claude-opus-4-5-20251101">Claude Opus 4.5</option>
+							<option value="claude-haiku-4-5-20251001">Claude Haiku 4.5</option>
 						</select>
 					</div>
 				</div>
