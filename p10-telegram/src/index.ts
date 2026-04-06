@@ -205,6 +205,7 @@ bot.onText(/\/start/, (msg) => {
 		'Commands:\n' +
 		'/status — Mesh status\n' +
 		'/board — Kanban task board\n' +
+		'/add [title] — Add task to board\n' +
 		'/debug — Debug snapshot\n' +
 		'/task <instruction> — Send a coding task\n' +
 		'/query <question> — Query a daemon\n\n' +
@@ -391,6 +392,9 @@ function handleAddFlow(msg: TelegramBot.Message): boolean {
 bot.on('message', (msg) => {
 	if (!msg.text || msg.text.startsWith('/')) return;
 	if (!isAllowed(msg.from!.id)) return;
+
+	// Check if user is in a guided /add flow
+	if (handleAddFlow(msg)) return;
 
 	// Forward as a task to the mesh with origin tracking
 	masterFetch('/task', {

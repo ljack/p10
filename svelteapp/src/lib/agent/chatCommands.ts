@@ -112,6 +112,57 @@ const commands: Record<string, {
 			return parts.join('\n');
 		}
 	},
+	add: {
+		description: 'Add a task to the board (e.g., /add implement dark mode)',
+		handler: async (args) => {
+			const title = args.trim();
+			if (!title) return '⚠️ Usage: `/add <task title>`';
+
+			try {
+				const resp = await fetch('/api/board', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						title,
+						humanCreated: true,
+						origin: { channel: 'browser-chat', userName: 'user' },
+						priority: 'normal',
+					}),
+				});
+				const data = await resp.json();
+				return `✅ Task added to board: **${data.title}**\n\n_AI will analyze in ~10s_`;
+			} catch {
+				return '❌ Could not add task — mesh offline?';
+			}
+		}
+	},
+	board: {
+		description: 'Show kanban board summary',
+		handler: async () => {
+			try {
+				const resp = await fetch('/api/board');
+				const data = await resp.json();
+				const cols = ['planned', 'in-progress', 'done', 'failed', 'blocked'] as const;
+				const icons: Record<string, string> = {
+					'planned': '📋', 'in-progress': '▶', 'done': '✓', 'failed': '✗', 'blocked': '⚠'
+				};
+				const lines = [`**Board** (${data.stats?.total || 0} tasks)\n`];
+				for (const col of cols) {
+					const tasks = data[col] || [];
+					if (tasks.length === 0) continue;
+					lines.push(`${icons[col]} **${col}** (${tasks.length})`);
+					for (const t of tasks) {
+						const prio = t.priority === 'urgent' ? '🔴 ' : t.priority === 'high' ? '🟠 ' : '';
+						lines.push(`  ${prio}${t.title.slice(0, 60)}`);
+					}
+				}
+				if (data.stats?.total === 0) lines.push('Board is empty.');
+				return lines.join('\n');
+			} catch {
+				return '❌ Board unavailable — mesh offline?';
+			}
+		}
+	},
 	query: {
 		description: 'Query a daemon (e.g., /query what errors are there?)',
 		handler: async (args) => {

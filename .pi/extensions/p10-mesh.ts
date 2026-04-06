@@ -690,6 +690,41 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.registerTool({
+		name: "mesh_add_task",
+		label: "Add Board Task",
+		description: "Add a new task to the P10 kanban board. Use for capturing ideas, TODOs, or planned work. Human-created tasks get auto-analyzed by AI after ~10s.",
+		parameters: Type.Object({
+			title: Type.String({ description: "Task title — what needs to be done" }),
+			description: Type.Optional(Type.String({ description: "Additional context or details" })),
+			priority: Type.Optional(Type.String({ description: "Priority: low, normal, high, urgent. Default: normal" })),
+			tags: Type.Optional(Type.Array(Type.String(), { description: "Tags for categorization" })),
+			humanCreated: Type.Optional(Type.Boolean({ description: "Whether this was from a human (triggers AI analysis). Default: true" })),
+		}),
+		async execute(_toolCallId, params) {
+			try {
+				const data = await masterFetch("/board/task", {
+					method: "POST",
+					body: JSON.stringify({
+						title: params.title,
+						description: params.description,
+						priority: params.priority || 'normal',
+						tags: params.tags,
+						humanCreated: params.humanCreated !== false,
+						origin: { channel: 'pi-cli', userName: 'user' },
+					}),
+				});
+				const prio = data.priority === 'urgent' ? '🔴 ' : data.priority === 'high' ? '🟠 ' : '';
+				return {
+					content: [{ type: "text", text: `✅ Task added to board: ${prio}"${data.title}" (${data.id})\nAI analysis will run in ~10s.` }],
+					details: {},
+				};
+			} catch (err: any) {
+				return { content: [{ type: "text", text: `Error: ${err.message}` }], details: {} };
+			}
+		},
+	});
+
+	pi.registerTool({
 		name: "mesh_messages",
 		label: "Mesh Messages",
 		description: "Get message history from the P10 mesh — shows tasks sent from all channels (Telegram, browser, CLI) with their status and results",

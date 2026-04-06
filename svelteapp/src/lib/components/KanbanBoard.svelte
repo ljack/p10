@@ -2,15 +2,28 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { browserDaemon } from '$lib/daemon/browserDaemon.svelte';
 
+	interface TaskAnalysis {
+		rewrittenTitle?: string;
+		questions?: string[];
+		ideas?: string[];
+		dependencies?: string[];
+		suggestedTags?: string[];
+		summary?: string;
+		analyzedAt: string;
+	}
+
 	interface BoardTask {
 		id: string;
 		title: string;
 		instruction: string;
+		description?: string;
 		column: string;
 		assignedTo?: string;
 		origin: { channel: string; userId?: string; userName?: string };
 		priority: string;
 		tags?: string[];
+		humanCreated?: boolean;
+		analysis?: TaskAnalysis;
 		createdAt: string;
 		startedAt?: string;
 		completedAt?: string;
