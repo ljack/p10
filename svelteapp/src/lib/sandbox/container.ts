@@ -395,14 +395,76 @@ app.get('/api/_routes', (req, res) => {
   res.json(routes.filter(r => r.path !== '/api/_routes'));
 });
 
+// Sample todos data
+let todos = [
+  { id: 1, title: 'Learn P10', completed: false },
+  { id: 2, title: 'Build an app', completed: false },
+  { id: 3, title: 'Deploy to production', completed: false }
+];
+
+// Todos CRUD endpoints
+app.get('/api/todos', (req, res) => {
+  res.json(todos);
+});
+
+app.post('/api/todos', (req, res) => {
+  const newTodo = {
+    id: Math.max(...todos.map(t => t.id), 0) + 1,
+    title: req.body.title || 'New Todo',
+    completed: false
+  };
+  todos.push(newTodo);
+  res.status(201).json(newTodo);
+});
+
+app.put('/api/todos/:id', (req, res) => {
+  const id = parseInt(req.params.id);
+  const todo = todos.find(t => t.id === id);
+  if (!todo) {
+    return res.status(404).json({ error: 'Todo not found' });
+  }
+  if (req.body.title !== undefined) todo.title = req.body.title;
+  if (req.body.completed !== undefined) todo.completed = req.body.completed;
+  res.json(todo);
+});
+
+app.delete('/api/todos/:id', (req, res) => {
+  const id = parseInt(req.params.id);
+  const index = todos.findIndex(t => t.id === id);
+  if (index === -1) {
+    return res.status(404).json({ error: 'Todo not found' });
+  }
+  const deleted = todos.splice(index, 1)[0];
+  res.json(deleted);
+});
+
 // Example endpoint — agent will add more
 app.get('/api', (req, res) => {
   res.json({ message: 'P10 API is running. Add endpoints by chatting with the agent.' });
 });
 
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Server error:', err);
+  res.status(500).json({ error: 'Internal server error', message: err.message });
+});
+
+// 404 handler
+app.use((req, res) => {
+  console.log('404 - Route not found:', req.method, req.url);
+  res.status(404).json({ error: 'Route not found', method: req.method, url: req.url });
+});
+
 const PORT = 3001;
 app.listen(PORT, () => {
-  console.log(\`API server running on http://localhost:\${PORT}\`);
+  console.log(\`🚀 API server running on http://localhost:\${PORT}\`);
+  console.log('📋 Available endpoints:');
+  console.log('   GET    /api/health');
+  console.log('   GET    /api/_routes');
+  console.log('   GET    /api/todos');
+  console.log('   POST   /api/todos');
+  console.log('   PUT    /api/todos/:id');
+  console.log('   DELETE /api/todos/:id');
 });
 `
 				}
