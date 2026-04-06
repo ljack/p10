@@ -292,10 +292,29 @@ async function handleTask(payload: any): Promise<any> {
 
 		await session.prompt(prompt);
 
-		// Get result
-		const messages = session.messages;
-		const lastMsg = messages[messages.length - 1];
-		const result = lastMsg?.content?.[0]?.text || 'Task completed';
+		// Get result — extract text from the last assistant message
+		const msgs = session.messages;
+		const lastMsg = msgs[msgs.length - 1];
+		let result = 'Task completed';
+
+		if (lastMsg) {
+			// Try different message content formats
+			if (typeof lastMsg.content === 'string') {
+				result = lastMsg.content;
+			} else if (Array.isArray(lastMsg.content)) {
+				result = lastMsg.content
+					.filter((c: any) => c.type === 'text')
+					.map((c: any) => c.text)
+					.join('\n') || result;
+			} else if (lastMsg.text) {
+				result = lastMsg.text;
+			}
+		}
+
+		if (result === 'Task completed') {
+			// Fallback: stringify the message to see what we got
+			console.log('[pi-daemon] Could not extract text from:', JSON.stringify(lastMsg).slice(0, 200));
+		}
 
 		currentTask = null;
 		lastAction = `completed: ${instruction.slice(0, 40)}`;
