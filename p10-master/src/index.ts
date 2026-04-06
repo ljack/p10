@@ -1,6 +1,8 @@
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
-import { writeFileSync, unlinkSync } from 'fs';
+import { writeFileSync, unlinkSync, openSync } from 'fs';
+import { spawn } from 'child_process';
+import { fileURLToPath } from 'url';
 import { DaemonRegistry } from './registry.js';
 import { MessageRouter } from './router.js';
 import { MASTER_DISCOVERY_FILE, DEFAULT_PORT, makeId } from './types.js';
@@ -10,6 +12,8 @@ import { MeshEventBus } from './eventBus.js';
 import { PipelineExecutor } from './pipelineExecutor.js';
 import { decompose } from './decomposer.js';
 import { pipelineStorage } from './pipelineStorage.js';
+import { taskBoard } from './taskBoard.js';
+import { PlanSync } from './planSync.js';
 import type { DaemonMessage, RegisterPayload, HeartbeatPayload } from './types.js';
 import type { TaskPipeline } from './decomposer.js';
 
@@ -40,6 +44,24 @@ const integrations = new IntegrationManager();
 const tracker = new MessageTracker();
 const eventBus = new MeshEventBus(registry, router);
 const pipelineExecutor = new PipelineExecutor(registry, router, eventBus);
+
+// Wire task board into event bus
+taskBoard.setEventBus(eventBus);
+
+// PLAN.md sync
+const planSync = new PlanSync(taskBoard);
+planSync.watch();
+
+// When board tasks move to done/failed, update PLAN.md checkboxes
+eventBus.subscribe('master', 'board.task.moved', 'plan-sync');
+// Hook into event bus to trigger PLAN.md updates
+const origEmit = eventBus.emit.bind(eventBus);
+eventBus.emit = (type: string, source: string, data: any, scope?: any) => {
+	origEmit(type, source, data, scope);
+	if (type === 'board.task.moved' && (data?.to === 'done' || data?.to === 'failed')) {
+		planSync.updatePlanFile();
+	}
+};
 
 // Pi CLI session tracking
 const piCliSessions = new Map<string, { id: string; userAgent: string; lastSeen: Date; created: Date; }>();
@@ -169,7 +191,25 @@ const httpServer = createServer((req, res) => {
 					userName: payload.userName
 				}, payload.instruction);
 
+				// Add to board
+				taskBoard.add({
+					id: taskId,
+					title: payload.instruction?.slice(0, 120) || 'Untitled task',
+					instruction: payload.instruction,
+					column: 'planned',
+					origin: { channel: payload.channel || 'rest-api', userId: payload.userId, userName: payload.userName },
+					priority: payload.priority || 'normal',
+				});
+
 				const result = router.route(message);
+
+				// Move to in-progress if routed, blocked if not
+				if (result.routed) {
+					taskBoard.move(taskId, 'in-progress');
+				} else if (result.blocked) {
+					taskBoard.move(taskId, 'blocked', { result: result.blocked });
+				}
+
 				console.log(`[master] REST task: "${payload.instruction?.slice(0, 60)}" → ${target} (${result.routed ? 'routed' : 'blocked: ' + result.blocked})`);
 				res.end(JSON.stringify({ taskId, routed: result.routed, blocked: result.blocked }));
 			} catch (err: any) {
@@ -411,6 +451,85 @@ const httpServer = createServer((req, res) => {
 		return;
 	}
 
+	// --- Board endpoints ---
+
+	if (req.url === '/board' && req.method === 'GET') {
+		res.end(JSON.stringify(taskBoard.getBoard(), null, 2));
+		return;
+	}
+
+	if (req.url?.startsWith('/board/column/') && req.method === 'GET') {
+		const column = req.url.split('/board/column/')[1] as any;
+		res.end(JSON.stringify(taskBoard.getColumn(column), null, 2));
+		return;
+	}
+
+	if (req.method === 'POST' && req.url === '/board/task') {
+		let body = '';
+		req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+		req.on('end', () => {
+			try {
+				const payload = JSON.parse(body);
+				if (!payload.title) {
+					res.statusCode = 400;
+					res.end(JSON.stringify({ error: 'title required' }));
+					return;
+				}
+				const task = taskBoard.add(payload);
+				res.end(JSON.stringify(task, null, 2));
+			} catch (err: any) {
+				res.statusCode = 400;
+				res.end(JSON.stringify({ error: err.message }));
+			}
+		});
+		return;
+	}
+
+	if (req.method === 'PATCH' && req.url?.startsWith('/board/task/')) {
+		const taskId = req.url.split('/board/task/')[1];
+		let body = '';
+		req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+		req.on('end', () => {
+			try {
+				const payload = JSON.parse(body);
+				let result;
+				if (payload.column) {
+					result = taskBoard.move(taskId, payload.column, payload);
+				} else {
+					result = taskBoard.update(taskId, payload);
+				}
+				if (result) {
+					res.end(JSON.stringify(result, null, 2));
+				} else {
+					res.statusCode = 404;
+					res.end(JSON.stringify({ error: 'Task not found' }));
+				}
+			} catch (err: any) {
+				res.statusCode = 400;
+				res.end(JSON.stringify({ error: err.message }));
+			}
+		});
+		return;
+	}
+
+	if (req.method === 'DELETE' && req.url?.startsWith('/board/task/')) {
+		const taskId = req.url.split('/board/task/')[1];
+		const removed = taskBoard.remove(taskId);
+		res.end(JSON.stringify({ removed }));
+		return;
+	}
+
+	if (req.url === '/board/sync' && req.method === 'GET') {
+		res.end(JSON.stringify(planSync.getStatus(), null, 2));
+		return;
+	}
+
+	if (req.method === 'POST' && req.url === '/board/sync') {
+		planSync.sync();
+		res.end(JSON.stringify({ synced: true, ...planSync.getStatus() }));
+		return;
+	}
+
 	// Event bus endpoints
 	if (req.url?.startsWith('/events')) {
 		try {
@@ -468,6 +587,46 @@ const httpServer = createServer((req, res) => {
 	if (req.url?.startsWith('/messages/channel/')) {
 		const channel = req.url.split('/').pop()!;
 		res.end(JSON.stringify(tracker.getByChannel(channel), null, 2));
+		return;
+	}
+
+	// --- Restart endpoint ---
+	if (req.method === 'POST' && req.url === '/restart') {
+		console.log('[master] 🔄 Restart requested via API');
+		res.end(JSON.stringify({ restarting: true, message: 'Master restarting — daemons will auto-reconnect in ~5s' }));
+
+		const masterDir = fileURLToPath(new URL('..', import.meta.url));
+
+		// Shut down first, then spawn replacement
+		setTimeout(() => {
+			console.log('[master] Shutting down for restart...');
+			registry.stop();
+			integrations.stopAll();
+			try { unlinkSync(MASTER_DISCOVERY_FILE); } catch { /* ignore */ }
+
+			// Close all WebSocket connections so daemons detect disconnect
+			for (const client of wss.clients) {
+				client.close();
+			}
+			wss.close();
+
+			httpServer.close(() => {
+				// Port is free now — spawn new process via shell (handles npx resolution)
+				const logFd = openSync('/tmp/p10-master.log', 'a');
+				const child = spawn('sh', ['-c', 'npx tsx src/index.ts'], {
+					cwd: masterDir,
+					detached: true,
+					stdio: ['ignore', logFd, logFd],
+					env: { ...process.env }
+				});
+				child.unref();
+				console.log(`[master] New master spawned (PID ${child.pid}), exiting...`);
+				process.exit(0);
+			});
+
+			// Safety: force exit after 5s if httpServer.close() hangs
+			setTimeout(() => process.exit(0), 5000);
+		}, 300);
 		return;
 	}
 
@@ -584,8 +743,10 @@ wss.on('connection', (ws: WebSocket) => {
 					const tracked = tracker.get(taskId);
 					if (message.payload?.result?.error) {
 						tracker.fail(taskId, message.payload.result.error);
+						taskBoard.move(taskId, 'failed', { result: message.payload.result.error });
 					} else {
 						tracker.complete(taskId, JSON.stringify(message.payload.result).slice(0, 500));
+						taskBoard.move(taskId, 'done', { result: JSON.stringify(message.payload.result).slice(0, 500) });
 					}
 
 					// Route result back to origin channel
@@ -689,6 +850,7 @@ function cleanup() {
 	console.log('\n[master] Shutting down...');
 	registry.stop();
 	integrations.stopAll();
+	planSync.unwatch();
 	try { unlinkSync(MASTER_DISCOVERY_FILE); } catch { /* ignore */ }
 	wss.close();
 	httpServer.close();

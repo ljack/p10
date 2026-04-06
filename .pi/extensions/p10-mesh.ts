@@ -145,6 +145,201 @@ async function autoStartMesh(ctx: any): Promise<boolean> {
 	return true;
 }
 
+// --- WebSocket daemon connection ---
+// Makes this pi CLI session a fully addressable daemon in the mesh.
+
+function makeId(): string {
+	return Math.random().toString(36).slice(2, 10) + '-' + Date.now().toString(36);
+}
+
+let meshWs: WebSocket | null = null;
+let meshHeartbeatTimer: ReturnType<typeof setInterval> | null = null;
+let meshReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let meshCtx: any = null; // store extension context for message handlers
+
+function getMasterWsUrl(): string | null {
+	if (!existsSync(DISCOVERY_FILE)) return null;
+	try {
+		const data = JSON.parse(readFileSync(DISCOVERY_FILE, "utf-8"));
+		return data.wsUrl || null;
+	} catch {
+		return null;
+	}
+}
+
+function connectMeshWs(ctx: any) {
+	const wsUrl = getMasterWsUrl();
+	if (!wsUrl) return;
+
+	meshCtx = ctx;
+
+	try {
+		meshWs = new WebSocket(wsUrl);
+
+		meshWs.onopen = () => {
+			// Register as a pi-cli daemon
+			meshWs!.send(JSON.stringify({
+				id: makeId(),
+				from: PI_SESSION_ID,
+				to: 'master',
+				type: 'register',
+				payload: {
+					name: `Pi CLI (${process.pid})`,
+					type: 'pi-cli',
+					capabilities: ['chat.interactive', 'query.answer', 'notify.user'],
+				},
+				timestamp: new Date().toISOString(),
+			}));
+
+			// Start heartbeat
+			meshHeartbeatTimer = setInterval(() => {
+				if (meshWs?.readyState === WebSocket.OPEN) {
+					meshWs.send(JSON.stringify({
+						id: makeId(),
+						from: PI_SESSION_ID,
+						to: 'master',
+						type: 'heartbeat',
+						payload: {
+							status: 'alive',
+							tldr: `pi CLI interactive session (pid ${process.pid})`,
+						},
+						timestamp: new Date().toISOString(),
+					}));
+				}
+			}, 5000);
+		};
+
+		meshWs.onmessage = (event) => {
+			try {
+				const msg = JSON.parse(String(event.data));
+				handleMeshWsMessage(msg);
+			} catch { /* ignore parse errors */ }
+		};
+
+		meshWs.onclose = () => {
+			stopMeshHeartbeat();
+			// Auto-reconnect after 5s
+			if (!meshReconnectTimer) {
+				meshReconnectTimer = setTimeout(() => {
+					meshReconnectTimer = null;
+					connectMeshWs(ctx);
+				}, 5000);
+			}
+		};
+
+		meshWs.onerror = () => {
+			// onclose will fire after this
+		};
+	} catch { /* ignore connection errors */ }
+}
+
+function disconnectMeshWs() {
+	stopMeshHeartbeat();
+	if (meshReconnectTimer) {
+		clearTimeout(meshReconnectTimer);
+		meshReconnectTimer = null;
+	}
+	if (meshWs) {
+		try { meshWs.close(); } catch { /* ignore */ }
+		meshWs = null;
+	}
+}
+
+function stopMeshHeartbeat() {
+	if (meshHeartbeatTimer) {
+		clearInterval(meshHeartbeatTimer);
+		meshHeartbeatTimer = null;
+	}
+}
+
+function sendMeshWs(to: string, type: string, payload: any) {
+	if (meshWs?.readyState === WebSocket.OPEN) {
+		meshWs.send(JSON.stringify({
+			id: makeId(),
+			from: PI_SESSION_ID,
+			to,
+			type,
+			payload,
+			timestamp: new Date().toISOString(),
+		}));
+	}
+}
+
+function handleMeshWsMessage(msg: any) {
+	const ctx = meshCtx;
+	if (!ctx) return;
+
+	switch (msg.type) {
+		case 'register_ack':
+			ctx.ui.notify(`📡 Mesh daemon registered: ${PI_SESSION_ID}`, "info");
+			break;
+
+		case 'query': {
+			// Someone is asking us a question — notify user
+			const question = msg.payload?.question || 'unknown';
+			ctx.ui.notify(`❓ Mesh query from ${msg.from}: ${question}`, "info");
+			// Auto-respond with session info for status queries
+			const q = question.toLowerCase();
+			if (q.includes('status') || q.includes('state') || q.includes('alive')) {
+				sendMeshWs(msg.from, 'query_response', {
+					queryId: msg.payload?.queryId,
+					answer: JSON.stringify({
+						sessionId: PI_SESSION_ID,
+						type: 'pi-cli',
+						pid: process.pid,
+						status: 'interactive session active',
+					}),
+				});
+			}
+			break;
+		}
+
+		case 'task': {
+			// Someone sent a task to this CLI session — notify user
+			const instruction = msg.payload?.instruction || 'unknown';
+			ctx.ui.notify(`📋 Incoming mesh task from ${msg.from}: ${instruction.slice(0, 100)}`, "info");
+			break;
+		}
+
+		case 'pipeline_progress': {
+			const p = msg.payload;
+			if (p) {
+				const completed = p.tasks?.filter((t: any) => t.status === 'completed').length || 0;
+				const active = p.tasks?.find((t: any) => t.status === 'active');
+				if (active) {
+					ctx.ui.notify(`🔄 Pipeline [${completed}/${p.totalTasks}]: ${active.role} — ${active.instruction.slice(0, 60)}`, "info");
+				} else if (p.status === 'completed') {
+					ctx.ui.notify(`✅ Pipeline completed: ${completed}/${p.totalTasks} tasks`, "info");
+				} else if (p.status === 'failed') {
+					ctx.ui.notify(`❌ Pipeline failed at task ${p.currentTaskIndex + 1}/${p.totalTasks}`, "warn");
+				}
+			}
+			break;
+		}
+
+		case 'register': {
+			const d = msg.payload?.daemon;
+			if (d) ctx.ui.notify(`🟢 Daemon joined: ${d.name} (${d.type})`, "info");
+			break;
+		}
+
+		case 'unregister': {
+			ctx.ui.notify(`🔴 Daemon left: ${msg.payload?.id}`, "info");
+			break;
+		}
+
+		case 'pong':
+			// Heartbeat response — ignore silently
+			break;
+
+		case 'mesh_event':
+		case 'event_notification': {
+			// Mesh events — could route to p10-mesh-events extension
+			break;
+		}
+	}
+}
+
 export default function (pi: ExtensionAPI) {
 	// Notify on load — auto-start mesh if not running
 	pi.on("session_start", async (_event, ctx) => {
@@ -155,20 +350,24 @@ export default function (pi: ExtensionAPI) {
 			try {
 				const health = await masterFetch("/health");
 				if (health.status === "ok") {
-					ctx.ui.notify("🔗 P10 Mesh connected", "info");
-					
-					// Notify master when pi session exits
-					const notifyQuit = async () => {
+					// Connect as a WebSocket daemon for full addressability
+					connectMeshWs(ctx);
+
+					// Clean disconnect on exit
+					const cleanup = () => {
+						disconnectMeshWs();
 						try {
-							await masterFetch("/pi-quit", {
+							// Fire-and-forget REST quit notification as backup
+							fetch(`${getMasterUrl()}/pi-quit`, {
 								method: "POST",
-								body: JSON.stringify({ sessionId: PI_SESSION_ID })
-							});
-						} catch { /* ignore errors during quit */ }
+								headers: { "Content-Type": "application/json" },
+								body: JSON.stringify({ sessionId: PI_SESSION_ID }),
+							}).catch(() => {});
+						} catch { /* ignore */ }
 					};
-					process.on('SIGINT', notifyQuit);
-					process.on('SIGTERM', notifyQuit);
-					process.on('beforeExit', notifyQuit);
+					process.on('SIGINT', cleanup);
+					process.on('SIGTERM', cleanup);
+					process.on('beforeExit', cleanup);
 				}
 			} catch {
 				ctx.ui.notify("○ P10 Mesh: master started but not responding", "warn");
@@ -404,6 +603,61 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.registerTool({
+		name: "mesh_board",
+		label: "Mesh Board",
+		description: "Get the kanban task board from the P10 mesh — shows tasks organized by column (planned, in-progress, done, failed, blocked) with stats",
+		parameters: Type.Object({
+			column: Type.Optional(Type.String({ description: "Filter to a specific column: planned, in-progress, done, failed, blocked. Omit for full board." })),
+		}),
+		async execute(_toolCallId, params) {
+			try {
+				const path = params.column ? `/board/column/${params.column}` : "/board";
+				const data = await masterFetch(path);
+
+				if (params.column) {
+					// Single column response (array of tasks)
+					const tasks = Array.isArray(data) ? data : [];
+					const lines = [
+						`${params.column}: ${tasks.length} task(s)`,
+						"",
+						...tasks.map((t: any) => {
+							const prio = t.priority === 'urgent' ? '🔴' : t.priority === 'high' ? '🟠' : t.priority === 'low' ? '🔵' : '';
+							return `${prio} ${t.title.slice(0, 80)}${t.assignedTo ? ` → ${t.assignedTo}` : ''}`;
+						}),
+					];
+					return { content: [{ type: "text", text: lines.join("\n") }], details: {} };
+				}
+
+				// Full board
+				const cols = ['planned', 'in-progress', 'done', 'failed', 'blocked'] as const;
+				const lines = [
+					`Task Board (${data.stats?.total || 0} tasks)`,
+					"",
+				];
+
+				for (const col of cols) {
+					const tasks = data[col] || [];
+					if (tasks.length === 0) continue;
+					const icon = col === 'planned' ? '📋' : col === 'in-progress' ? '▶' : col === 'done' ? '✓' : col === 'failed' ? '✗' : '⚠';
+					lines.push(`${icon} ${col} (${tasks.length}):`);
+					for (const t of tasks) {
+						const prio = t.priority === 'urgent' ? '🔴 ' : t.priority === 'high' ? '🟠 ' : t.priority === 'low' ? '🔵 ' : '';
+						const origin = t.origin?.channel ? ` [${t.origin.channel}]` : '';
+						lines.push(`  ${prio}${t.title.slice(0, 70)}${origin}`);
+					}
+					lines.push("");
+				}
+
+				if (data.stats?.total === 0) lines.push("Board is empty.");
+
+				return { content: [{ type: "text", text: lines.join("\n") }], details: {} };
+			} catch (err: any) {
+				return { content: [{ type: "text", text: `Error: ${err.message}` }], details: {} };
+			}
+		},
+	});
+
+	pi.registerTool({
 		name: "mesh_messages",
 		label: "Mesh Messages",
 		description: "Get message history from the P10 mesh — shows tasks sent from all channels (Telegram, browser, CLI) with their status and results",
@@ -453,6 +707,43 @@ export default function (pi: ExtensionAPI) {
 				ctx.ui.notify(`📊 ${data.snapshot?.tldr || "No snapshot"}`, "info");
 			} catch {
 				ctx.ui.notify("P10 app not running", "warn");
+			}
+		},
+	});
+
+	pi.registerCommand("board", {
+		description: "Show kanban task board",
+		handler: async (_args, ctx) => {
+			const url = getMasterUrl();
+			if (!url) {
+				ctx.ui.notify("○ Mesh offline. Run ./start-mesh.sh", "warn");
+				return;
+			}
+			try {
+				const data = await masterFetch("/board");
+				const cols = ['planned', 'in-progress', 'done', 'failed', 'blocked'] as const;
+				const colLabels: Record<string, string> = {
+					'planned': '📋 Planned',
+					'in-progress': '▶ In Progress',
+					'done': '✓ Done',
+					'failed': '✗ Failed',
+					'blocked': '⚠ Blocked',
+				};
+				const sections: string[] = [`📊 Board (${data.stats?.total || 0} tasks)`, ''];
+				for (const col of cols) {
+					const tasks = data[col] || [];
+					if (tasks.length === 0) continue;
+					sections.push(`${colLabels[col]} (${tasks.length})`);
+					for (const t of tasks) {
+						const prio = t.priority === 'urgent' ? '🔴' : t.priority === 'high' ? '🟠' : '';
+						sections.push(`  ${prio}${prio ? ' ' : ''}${t.title.slice(0, 60)}`);
+					}
+					sections.push('');
+				}
+				if (data.stats?.total === 0) sections.push('Board is empty.');
+				ctx.ui.notify(sections.join('\n'), 'info');
+			} catch (err: any) {
+				ctx.ui.notify(`❌ ${err.message}`, 'error');
 			}
 		},
 	});

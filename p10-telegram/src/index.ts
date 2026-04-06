@@ -204,6 +204,7 @@ bot.onText(/\/start/, (msg) => {
 		'🔗 *P10 Development Platform*\n\n' +
 		'Commands:\n' +
 		'/status — Mesh status\n' +
+		'/board — Kanban task board\n' +
 		'/debug — Debug snapshot\n' +
 		'/task <instruction> — Send a coding task\n' +
 		'/query <question> — Query a daemon\n\n' +
@@ -223,6 +224,32 @@ bot.onText(/\/status/, async (msg) => {
 			`*Mesh Status* (${data.daemons.length} daemons)\n\n${lines.join('\n')}\n\n_${data.systemTldr}_`,
 			{ parse_mode: 'Markdown' }
 		);
+	} catch (err: any) {
+		bot.sendMessage(msg.chat.id, `❌ ${err.message}`);
+	}
+});
+
+bot.onText(/\/board/, async (msg) => {
+	if (!isAllowed(msg.from!.id)) return;
+	try {
+		const data = await masterFetch('/board');
+		const cols = ['planned', 'in-progress', 'done', 'failed', 'blocked'] as const;
+		const icons: Record<string, string> = {
+			'planned': '📋', 'in-progress': '▶️', 'done': '✅', 'failed': '❌', 'blocked': '⚠️'
+		};
+		const sections: string[] = [`📊 *Board* (${data.stats?.total || 0} tasks)`, ''];
+		for (const col of cols) {
+			const tasks = data[col] || [];
+			if (tasks.length === 0) continue;
+			sections.push(`${icons[col]} *${col}* (${tasks.length})`);
+			for (const t of tasks) {
+				const prio = t.priority === 'urgent' ? '🔴 ' : t.priority === 'high' ? '🟠 ' : '';
+				sections.push(`  ${prio}${t.title.slice(0, 60)}`);
+			}
+			sections.push('');
+		}
+		if (data.stats?.total === 0) sections.push('Board is empty.');
+		bot.sendMessage(msg.chat.id, sections.join('\n'), { parse_mode: 'Markdown' });
 	} catch (err: any) {
 		bot.sendMessage(msg.chat.id, `❌ ${err.message}`);
 	}

@@ -7,8 +7,9 @@
 		type ContainerState
 	} from '$lib/sandbox/container';
 	import ApiPreview from './ApiPreview.svelte';
+	import KanbanBoard from './KanbanBoard.svelte';
 
-	type PreviewTab = 'web' | 'api' | 'mobile';
+	type PreviewTab = 'web' | 'api' | 'mobile' | 'board';
 
 	let activeTab = $state<PreviewTab>('web');
 	let containerState = $state<ContainerState>({
@@ -49,7 +50,8 @@
 	const tabs: { id: PreviewTab; label: string }[] = [
 		{ id: 'web', label: 'Web' },
 		{ id: 'api', label: 'API' },
-		{ id: 'mobile', label: 'Mobile' }
+		{ id: 'mobile', label: 'Mobile' },
+		{ id: 'board', label: 'Board' }
 	];
 
 	onMount(() => {
@@ -161,6 +163,13 @@
 		<div class="{activeTab === 'api' ? 'contents' : 'hidden'}">
 			<ApiPreview />
 		</div>
+
+		<!-- Kanban Board -->
+		{#if activeTab === 'board'}
+			<div class="absolute inset-0">
+				<KanbanBoard />
+			</div>
+		{/if}
 
 		<!-- Floating Mobile Preview -->
 		{#if mobileVisible && containerState.serverUrl}
