@@ -10,7 +10,7 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { DynamicBorder } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
-import { Text, Container, Spacer, truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
+import { Text, Container, Spacer } from "@mariozechner/pi-tui";
 import { readFileSync, writeFileSync, existsSync, openSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { join } from "node:path";
