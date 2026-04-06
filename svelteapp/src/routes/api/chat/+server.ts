@@ -120,11 +120,22 @@ export const POST: RequestHandler = async ({ request }) => {
 
 	const systemWithSpecs = SYSTEM_PROMPT.replace('{SPEC_CONTEXT}', specContext) + errorContext;
 
-	const result = streamText({
-		model: anthropic(model),
-		system: systemWithSpecs,
-		messages: modelMessages
-	});
+	try {
+		const result = streamText({
+			model: anthropic(model),
+			system: systemWithSpecs,
+			messages: modelMessages
+		});
 
-	return result.toTextStreamResponse();
+		return result.toTextStreamResponse();
+	} catch (err: any) {
+		console.error('[api/chat] Error:', err.message);
+		const msg = err.message?.includes('authentication') || err.message?.includes('401')
+			? 'Invalid API key. Please check your Anthropic API key in Settings.'
+			: `Error: ${err.message}`;
+		return new Response(JSON.stringify({ error: msg }), {
+			status: 500,
+			headers: { 'Content-Type': 'application/json' }
+		});
+	}
 };

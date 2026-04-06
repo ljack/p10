@@ -257,6 +257,18 @@
 				scrollToBottom();
 			}
 
+			// Detect empty response (likely auth error or API failure)
+			if (!fullText.trim()) {
+				messages = messages.map((m, i) =>
+					i === messages.length - 1
+						? { ...m, content: '❌ No response from API. Check your API key in Settings (bottom bar) and ensure it\'s valid.', isStreaming: false }
+						: m
+				);
+				isStreaming = false;
+				agentState.setStatus('idle');
+				return;
+			}
+
 			// Mark streaming as done
 			messages = messages.map((m, i) =>
 				i === messages.length - 1 ? { ...m, isStreaming: false } : m
