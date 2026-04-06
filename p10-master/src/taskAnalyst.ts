@@ -14,6 +14,7 @@ import type { TaskBoard, BoardTask, TaskAnalysis } from './taskBoard.js';
 import type { MessageRouter } from './router.js';
 import type { DaemonRegistry } from './registry.js';
 import type { MeshEventBus } from './eventBus.js';
+import type { BoardMemory } from './boardMemory.js';
 import { makeId } from './types.js';
 
 export interface TaskAnalystConfig {
@@ -37,6 +38,7 @@ export class TaskAnalyst {
 	private registry: DaemonRegistry;
 	private eventBus: MeshEventBus;
 	private config: TaskAnalystConfig;
+	private memory: BoardMemory | null = null;
 	private pollTimer: ReturnType<typeof setInterval> | null = null;
 	private analyzing = new Set<string>(); // task IDs currently being analyzed
 	private pendingResponses = new Map<string, string>(); // queryId → taskId
@@ -53,6 +55,11 @@ export class TaskAnalyst {
 		this.registry = registry;
 		this.eventBus = eventBus;
 		this.config = { ...DEFAULT_CONFIG, ...config };
+	}
+
+	/** Set memory store for context injection */
+	setMemory(memory: BoardMemory) {
+		this.memory = memory;
 	}
 
 	/** Start the analyst polling loop */
@@ -140,6 +147,9 @@ export class TaskAnalyst {
 			.slice(0, 15)
 			.join('\n');
 
+		// Get relevant memories from past work
+		const memoryContext = this.memory?.getContext(task.title) || '';
+
 		const prompt = `You are a task analyst for a software development project. Analyze this new task and provide structured enrichment.
 
 TASK TITLE: "${task.title}"
@@ -148,6 +158,7 @@ ${task.tags?.length ? `TAGS: ${task.tags.join(', ')}` : ''}
 
 OTHER PLANNED TASKS:
 ${boardContext || '(none)'}
+${memoryContext ? `\nRELEVANT PAST WORK (from project memory):\n${memoryContext}` : ''}
 
 Respond with EXACTLY this format (keep each section brief, 1-2 sentences max):
 

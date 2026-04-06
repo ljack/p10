@@ -15,6 +15,8 @@ import { pipelineStorage } from './pipelineStorage.js';
 import { taskBoard } from './taskBoard.js';
 import { PlanSync } from './planSync.js';
 import { TaskAnalyst } from './taskAnalyst.js';
+import { boardMemory } from './boardMemory.js';
+import { GroomingAgent } from './groomingAgent.js';
 import type { DaemonMessage, RegisterPayload, HeartbeatPayload } from './types.js';
 import type { TaskPipeline } from './decomposer.js';
 
@@ -57,7 +59,15 @@ planSync.watch();
 const taskAnalyst = new TaskAnalyst(taskBoard, router, registry, eventBus, {
 	analysisDelayMs: parseInt(process.env.P10_ANALYSIS_DELAY || '10000'),
 });
+taskAnalyst.setMemory(boardMemory);
 taskAnalyst.start();
+
+// Grooming agent (board → archive → memory → reflection)
+const groomingAgent = new GroomingAgent(taskBoard, boardMemory, router, registry, eventBus, {
+	intervalMs: parseInt(process.env.P10_GROOM_INTERVAL || String(5 * 60 * 1000)),
+	archiveAfterMs: parseInt(process.env.P10_ARCHIVE_AFTER || String(30 * 60 * 1000)),
+});
+groomingAgent.start();
 
 // When board tasks move to done/failed, update PLAN.md checkboxes
 eventBus.subscribe('master', 'board.task.moved', 'plan-sync');
@@ -559,6 +569,91 @@ const httpServer = createServer((req, res) => {
 		return;
 	}
 
+	// --- Memory endpoints ---
+
+	if (req.url === '/board/memory' && req.method === 'GET') {
+		res.end(JSON.stringify({
+			reflections: boardMemory.getReflections(),
+			memories: boardMemory.getByTier('memory'),
+			archives: boardMemory.getByTier('archive'),
+			stats: boardMemory.getStats(),
+		}, null, 2));
+		return;
+	}
+
+	if (req.url === '/board/memory/reflections' && req.method === 'GET') {
+		res.end(JSON.stringify(boardMemory.getReflections(), null, 2));
+		return;
+	}
+
+	if (req.url?.startsWith('/board/memory/search') && req.method === 'GET') {
+		try {
+			const urlObj = new URL(req.url, 'http://localhost');
+			const query = urlObj.searchParams.get('q') || '';
+			const results = boardMemory.search(query);
+			res.end(JSON.stringify(results, null, 2));
+		} catch {
+			res.end(JSON.stringify([]));
+		}
+		return;
+	}
+
+	if (req.url?.startsWith('/board/memory/') && req.method === 'GET') {
+		const id = req.url.split('/board/memory/')[1];
+		if (id && id !== 'search' && id !== 'reflections') {
+			const result = boardMemory.getWithChildren(id);
+			if (result) {
+				res.end(JSON.stringify({ ...result, path: boardMemory.getPath(id) }, null, 2));
+			} else {
+				res.statusCode = 404;
+				res.end(JSON.stringify({ error: 'Memory node not found' }));
+			}
+			return;
+		}
+	}
+
+	if (req.method === 'POST' && req.url?.startsWith('/board/memory/rebirth/')) {
+		const id = req.url.split('/board/memory/rebirth/')[1];
+		const node = boardMemory.get(id);
+		if (!node) {
+			res.statusCode = 404;
+			res.end(JSON.stringify({ error: 'Memory node not found' }));
+			return;
+		}
+		// Rebirth: create a new planned task from the memory
+		const task = taskBoard.add({
+			title: node.title,
+			instruction: node.summary,
+			column: 'planned',
+			origin: { channel: 'rebirth' },
+			tags: [...node.tags, 'rebirth'],
+		});
+		res.end(JSON.stringify({ rebirthed: true, task }, null, 2));
+		return;
+	}
+
+	if (req.url === '/board/memory/context' && req.method === 'GET') {
+		try {
+			const urlObj = new URL(req.url + '?' + (req.url.split('?')[1] || ''), 'http://localhost');
+			const task = urlObj.searchParams.get('task') || '';
+			res.end(JSON.stringify({ context: boardMemory.getContext(task) }));
+		} catch {
+			res.end(JSON.stringify({ context: '' }));
+		}
+		return;
+	}
+
+	if (req.url === '/board/grooming' && req.method === 'GET') {
+		res.end(JSON.stringify(groomingAgent.getStatus(), null, 2));
+		return;
+	}
+
+	if (req.method === 'POST' && req.url === '/board/groom') {
+		groomingAgent.groom();
+		res.end(JSON.stringify({ grooming: true }));
+		return;
+	}
+
 	// Event bus endpoints
 	if (req.url?.startsWith('/events')) {
 		try {
@@ -768,6 +863,7 @@ wss.on('connection', (ws: WebSocket) => {
 				if (taskId) {
 					pipelineExecutor.handleTaskResult(taskId, message.payload?.result);
 					taskAnalyst.handleTaskResult(taskId, message.payload?.result);
+					groomingAgent.handleTaskResult(taskId, message.payload?.result);
 				}
 				if (taskId) {
 					const tracked = tracker.get(taskId);
@@ -882,6 +978,7 @@ function cleanup() {
 	integrations.stopAll();
 	planSync.unwatch();
 	taskAnalyst.stop();
+	groomingAgent.stop();
 	try { unlinkSync(MASTER_DISCOVERY_FILE); } catch { /* ignore */ }
 	wss.close();
 	httpServer.close();
