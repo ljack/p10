@@ -4,6 +4,7 @@ import { writeFileSync, unlinkSync } from 'fs';
 import { DaemonRegistry } from './registry.js';
 import { MessageRouter } from './router.js';
 import { MASTER_DISCOVERY_FILE, DEFAULT_PORT, makeId } from './types.js';
+import type { DaemonMessage } from './types.js';
 import type { DaemonMessage, RegisterPayload, HeartbeatPayload } from './types.js';
 
 const PORT = parseInt(process.env.P10_PORT || String(DEFAULT_PORT));
@@ -37,8 +38,115 @@ const httpServer = createServer((req, res) => {
 		return;
 	}
 
+	// REST API for fire-and-forget operations (no WebSocket needed)
+	if (req.method === 'POST' && req.url === '/task') {
+		let body = '';
+		req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+		req.on('end', () => {
+			try {
+				const payload = JSON.parse(body);
+				const target = payload.target || '*';
+				const taskId = payload.taskId || makeId();
+				const message: DaemonMessage = {
+					id: makeId(),
+					from: payload.from || 'rest-api',
+					to: target,
+					type: 'task',
+					payload: { taskId, instruction: payload.instruction, context: payload.context, priority: payload.priority || 'normal' },
+					timestamp: new Date().toISOString()
+				};
+				const result = router.route(message);
+				console.log(`[master] REST task: "${payload.instruction?.slice(0, 60)}" → ${target} (${result.routed ? 'routed' : 'blocked: ' + result.blocked})`);
+				res.end(JSON.stringify({ taskId, routed: result.routed, blocked: result.blocked }));
+			} catch (err: any) {
+				res.statusCode = 400;
+				res.end(JSON.stringify({ error: err.message }));
+			}
+		});
+		return;
+	}
+
+	if (req.method === 'POST' && req.url === '/query') {
+		let body = '';
+		req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+		req.on('end', () => {
+			try {
+				const payload = JSON.parse(body);
+				const target = payload.target || '*';
+				const queryId = makeId();
+
+				// For REST queries, we need to wait for the response
+				// Set up a temporary listener on the router
+				const timeout = setTimeout(() => {
+					res.end(JSON.stringify({ queryId, answer: null, error: 'timeout' }));
+				}, 15000);
+
+				// Create a temporary WS-like receiver
+				const tempId = 'rest-' + makeId();
+				const tempWs = {
+					readyState: 1, // OPEN
+					OPEN: 1,
+					send(data: string) {
+						try {
+							const msg = JSON.parse(data);
+							if (msg.type === 'query_response' && msg.payload?.queryId === queryId) {
+								clearTimeout(timeout);
+								router.removeConnection(tempId);
+								res.end(JSON.stringify({ queryId, answer: msg.payload.answer }));
+							}
+						} catch { /* ignore */ }
+					}
+				} as any;
+
+				router.addConnection(tempId, tempWs);
+
+				const message: DaemonMessage = {
+					id: makeId(),
+					from: tempId,
+					to: target,
+					type: 'query',
+					payload: { queryId, question: payload.question, context: payload.context },
+					timestamp: new Date().toISOString()
+				};
+				router.route(message);
+				console.log(`[master] REST query: "${payload.question?.slice(0, 60)}" → ${target}`);
+			} catch (err: any) {
+				res.statusCode = 400;
+				res.end(JSON.stringify({ error: err.message }));
+			}
+		});
+		return;
+	}
+
+	if (req.method === 'POST' && req.url === '/message') {
+		let body = '';
+		req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+		req.on('end', () => {
+			try {
+				const message = JSON.parse(body) as DaemonMessage;
+				message.id = message.id || makeId();
+				message.timestamp = message.timestamp || new Date().toISOString();
+				const result = router.route(message);
+				res.end(JSON.stringify({ routed: result.routed, blocked: result.blocked }));
+			} catch (err: any) {
+				res.statusCode = 400;
+				res.end(JSON.stringify({ error: err.message }));
+			}
+		});
+		return;
+	}
+
+	// CORS preflight
+	if (req.method === 'OPTIONS') {
+		res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+		res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+		res.statusCode = 204;
+		res.end();
+		return;
+	}
+
 	res.statusCode = 404;
-	res.end(JSON.stringify({ error: 'Not found' }));
+	res.end(JSON.stringify({ error: 'Not found. Endpoints: GET /health, /status, /tldr. POST /task, /query, /message' }));
 });
 
 // WebSocket server
