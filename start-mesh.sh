@@ -76,10 +76,22 @@ echo ""
 echo "  Open http://localhost:3333 in your browser."
 echo "  The Browser Daemon will auto-connect to the mesh."
 echo ""
+# 4. Optional: Start Telegram Bot
+TG_PID=""
+if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
+  echo "  4/4 Starting Telegram Bot..."
+  cd "$BASE_DIR/p10-telegram"
+  nohup npx tsx src/index.ts > /tmp/p10-telegram.log 2>&1 &
+  TG_PID=$!
+  sleep 2
+  echo "       ✅ Telegram Bot started (PID $TG_PID)"
+fi
+
+echo ""
 echo "  Press Ctrl+C to stop all daemons."
 
 # Cleanup on exit
-trap "echo 'Stopping mesh...'; kill $MASTER_PID $PI_PID $VITE_PID 2>/dev/null; exit 0" SIGINT SIGTERM
+trap "echo 'Stopping mesh...'; kill $MASTER_PID $PI_PID $VITE_PID $TG_PID 2>/dev/null; exit 0" SIGINT SIGTERM
 
 # Wait
 wait
