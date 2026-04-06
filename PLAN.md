@@ -10,7 +10,7 @@
 - [x] Daemon mesh event bus
 - [x] Telegram bot bridge
 - [x] Kanban task board UI polish
-- [ ] Activity awareness: mesh-wide agent notifications + auto-pickup
+- [x] Activity awareness: mesh-wide agent notifications + auto-pickup
 - [ ] Multi-agent pipeline improvements
 - [x] Task board persistence (board state lost on master restart)
 
