@@ -21,6 +21,7 @@
 		assignedTo?: string;
 		origin: { channel: string; userId?: string; userName?: string };
 		priority: string;
+		scope?: 'project' | 'platform';
 		tags?: string[];
 		humanCreated?: boolean;
 		analysis?: TaskAnalysis;
@@ -40,6 +41,7 @@
 			total: number;
 			byColumn: Record<string, number>;
 			byPriority: Record<string, number>;
+			byScope?: Record<string, number>;
 		};
 	}
 
@@ -48,6 +50,7 @@
 	let loading = $state(true);
 	let expandedTask = $state<string | null>(null);
 	let newTaskTitle = $state('');
+	let scopeFilter = $state<'all' | 'project' | 'platform'>('all');
 	let addingTask = $state(false);
 	let pollTimer: ReturnType<typeof setInterval>;
 

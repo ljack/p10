@@ -20,7 +20,7 @@ import { taskBoard } from './taskBoard.js';
 import type { BoardSubtask } from './taskBoard.js';
 import { makeId } from './types.js';
 
-const TASK_TIMEOUT = 120_000; // 2 minutes per task
+const TASK_TIMEOUT = 300_000; // 5 minutes per task
 const SIDE_EFFECT_WAIT: Record<string, number> = {
 	api_agent: 5000,       // Backend restart via --watch
 	web_agent: 2000,       // Vite hot-reload

@@ -83,10 +83,38 @@ export interface BoardSnapshot {
 		total: number;
 		byColumn: Record<TaskColumn, number>;
 		byPriority: Record<TaskPriority, number>;
+		byScope: Record<TaskScope, number>;
 	};
 }
 
 const MAX_DONE_TASKS = 100;
+
+/** Auto-detect whether a task is about the P10 platform or the user's project */
+function inferScope(title: string, tags?: string[], origin?: { channel: string }): TaskScope {
+	const text = `${title} ${(tags || []).join(' ')}`.toLowerCase();
+
+	// Platform indicators: P10 internals, mesh, daemon, board, pipeline infrastructure
+	const platformPatterns = [
+		/\bp10\b/, /\bmesh\b/, /\bdaemon\b/, /\bboard\b/, /\bkanban\b/,
+		/\bpipeline\s*(executor|storage|improve)/, /\bgrooming\b/, /\banalyst\b/,
+		/\bmemory\s*(tier|compress|archive)/, /\bplan\.md\b/, /\bplan\s*sync\b/,
+		/\btelegram\s*(bot|bridge|integration)/, /\bbrowser\s*daemon\b/,
+		/\bpi\s*(daemon|cli|sdk)\b/, /\bwebsocket\b/, /\bheartbeat\b/,
+		/\bmvp[0-9]/, /\bsprint\b/, /\bmaster\s*daemon\b/,
+		/\bevent\s*bus\b/, /\bregistry\b/, /\brouter\b/,
+	];
+
+	// Platform tags
+	const platformTags = ['p10-infra', 'p10-pipeline', 'p10-testing', 'p10-devops', 'p10-docs', 'mvp4', 'mvp3'];
+
+	if (platformPatterns.some(p => p.test(text))) return 'platform';
+	if (tags?.some(t => platformTags.includes(t.toLowerCase()))) return 'platform';
+
+	// PLAN.md in the p10 project root = platform tasks
+	if (origin?.channel === 'plan.md') return 'platform';
+
+	return 'project';
+}
 
 export class TaskBoard {
 	private tasks = new Map<string, BoardTask>();
@@ -106,10 +134,16 @@ export class TaskBoard {
 			if (!existsSync(BOARD_FILE)) return;
 			const data = JSON.parse(readFileSync(BOARD_FILE, 'utf-8'));
 			if (Array.isArray(data.tasks)) {
+				let backfilled = 0;
 				for (const task of data.tasks) {
+					// Backfill scope on tasks that predate the scope feature
+					if (!task.scope) {
+						task.scope = inferScope(task.title, task.tags, task.origin);
+						backfilled++;
+					}
 					this.tasks.set(task.id, task);
 				}
-				console.log(`[board] Loaded ${this.tasks.size} tasks from ${BOARD_FILE}`);
+				console.log(`[board] Loaded ${this.tasks.size} tasks from ${BOARD_FILE}${backfilled ? ` (backfilled scope on ${backfilled})` : ''}`);
 			}
 		} catch (err: any) {
 			console.warn(`[board] Failed to load board.json: ${err.message} — starting empty`);
@@ -153,7 +187,7 @@ export class TaskBoard {
 			column: opts.column || 'planned',
 			origin: opts.origin || { channel: 'system' },
 			priority: opts.priority || 'normal',
-			scope: opts.scope,
+			scope: opts.scope || inferScope(opts.title, opts.tags, opts.origin),
 			parentId: opts.parentId,
 			tags: opts.tags,
 			humanCreated: opts.humanCreated,
@@ -240,10 +274,12 @@ export class TaskBoard {
 		const columns: TaskColumn[] = ['planned', 'in-progress', 'done', 'failed', 'blocked'];
 		const byColumn: Record<TaskColumn, number> = { planned: 0, 'in-progress': 0, done: 0, failed: 0, blocked: 0 };
 		const byPriority: Record<TaskPriority, number> = { low: 0, normal: 0, high: 0, urgent: 0 };
+		const byScope: Record<TaskScope, number> = { project: 0, platform: 0 };
 
 		for (const task of this.tasks.values()) {
 			byColumn[task.column]++;
 			byPriority[task.priority]++;
+			byScope[task.scope || 'project']++;
 		}
 
 		const snapshot: BoardSnapshot = {
@@ -256,6 +292,7 @@ export class TaskBoard {
 				total: this.tasks.size,
 				byColumn,
 				byPriority,
+				byScope,
 			},
 		};
 

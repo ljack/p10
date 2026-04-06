@@ -2,6 +2,7 @@ import type { DaemonRegistration, DaemonStatus, HeartbeatPayload, RegisterPayloa
 
 const STALE_THRESHOLD = 15_000; // 15 seconds
 const DEAD_THRESHOLD = 30_000;  // 30 seconds
+const REAP_THRESHOLD = 60_000;  // 60 seconds — remove dead daemons after this
 
 export class DaemonRegistry {
 	private daemons = new Map<string, DaemonRegistration>();
@@ -20,6 +21,15 @@ export class DaemonRegistry {
 	}
 
 	register(id: string, payload: RegisterPayload): DaemonRegistration {
+		// If a daemon with the same name+type already exists (reconnection),
+		// remove the old registration to avoid duplicates
+		for (const [existingId, existing] of this.daemons) {
+			if (existingId !== id && existing.name === payload.name && existing.type === payload.type) {
+				console.log(`[registry] Replacing stale registration: ${existingId} (${existing.name})`);
+				this.daemons.delete(existingId);
+			}
+		}
+
 		const registration: DaemonRegistration = {
 			id,
 			name: payload.name,
@@ -78,11 +88,17 @@ export class DaemonRegistry {
 
 	private checkHeartbeats() {
 		const now = Date.now();
+		const toReap: string[] = [];
+
 		for (const daemon of this.daemons.values()) {
 			const elapsed = now - new Date(daemon.lastHeartbeat).getTime();
 			const prevStatus = daemon.status;
 
-			if (elapsed > DEAD_THRESHOLD) {
+			if (elapsed > REAP_THRESHOLD) {
+				// Dead long enough — remove entirely
+				toReap.push(daemon.id);
+				continue;
+			} else if (elapsed > DEAD_THRESHOLD) {
 				daemon.status = 'dead';
 			} else if (elapsed > STALE_THRESHOLD) {
 				daemon.status = 'stale';
@@ -91,6 +107,13 @@ export class DaemonRegistry {
 			if (daemon.status !== prevStatus) {
 				console.log(`[registry] ${daemon.name} (${daemon.id}): ${prevStatus} → ${daemon.status}`);
 			}
+		}
+
+		// Reap dead daemons
+		for (const id of toReap) {
+			const daemon = this.daemons.get(id);
+			console.log(`[registry] Reaped dead daemon: ${daemon?.name} (${id})`);
+			this.daemons.delete(id);
 		}
 	}
 }
