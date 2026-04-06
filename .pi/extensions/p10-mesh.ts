@@ -165,6 +165,44 @@ export default function (pi: ExtensionAPI) {
 		},
 	});
 
+	pi.registerTool({
+		name: "mesh_setup_telegram",
+		label: "Setup Telegram",
+		description: "Start the Telegram integration setup flow. Call this when the user wants to connect Telegram to the P10 mesh. Returns instructions for the next step.",
+		parameters: Type.Object({
+			token: Type.Optional(Type.String({ description: "Telegram bot token from @BotFather. If not provided, returns setup instructions." })),
+		}),
+		async execute(_toolCallId, params) {
+			if (params.token) {
+				const data = await masterFetch("/integrations/telegram/token", {
+					method: "POST",
+					body: JSON.stringify({ token: params.token }),
+				});
+				return { content: [{ type: "text", text: data.message }], details: {} };
+			} else {
+				const data = await masterFetch("/integrations/telegram/setup", { method: "POST" });
+				return { content: [{ type: "text", text: data.message }], details: {} };
+			}
+		},
+	});
+
+	pi.registerTool({
+		name: "mesh_messages",
+		label: "Mesh Messages",
+		description: "Get message history from the P10 mesh — shows tasks sent from all channels (Telegram, browser, CLI) with their status and results",
+		parameters: Type.Object({
+			channel: Type.Optional(Type.String({ description: "Filter by channel: telegram, browser-chat, rest-api. Leave empty for all." })),
+		}),
+		async execute(_toolCallId, params) {
+			const path = params.channel ? `/messages/channel/${params.channel}` : "/messages";
+			const data = await masterFetch(path);
+			return {
+				content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+				details: {},
+			};
+		},
+	});
+
 	// --- Commands ---
 
 	pi.registerCommand("mesh", {

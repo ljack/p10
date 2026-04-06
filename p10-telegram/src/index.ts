@@ -133,17 +133,67 @@ function connectToMaster() {
 	ws.on('error', () => { /* will trigger close */ });
 }
 
-// Handle messages from the mesh (e.g., notifications to send to Telegram)
+// Handle messages from the mesh
 function handleMeshMessage(msg: any) {
 	if (msg.type === 'register_ack') {
 		console.log(`[telegram] Registered as ${msg.payload?.id}`);
 	}
-	// Future: handle notifications from other daemons
-	// e.g., "build complete", "error detected", etc.
+
+	// Handle task results routed back from Master
+	if (msg.type === 'task_result' && msg.payload?.origin?.channel === 'telegram') {
+		const chatId = msg.payload.origin.channelId;
+		const result = msg.payload.result;
+		let text: string;
+
+		if (result?.error) {
+			text = `❌ Task failed: ${result.error}`;
+		} else if (result?.success) {
+			const resultText = result.result || 'Task completed';
+			text = `✅ Done:\n${resultText.slice(0, 3000)}`;
+		} else {
+			text = `📋 Result: ${JSON.stringify(result).slice(0, 3000)}`;
+		}
+
+		bot.sendMessage(Number(chatId), text).catch(() => {
+			console.log(`[telegram] Failed to send result to chat ${chatId}`);
+		});
+	}
 }
 
 // Telegram Bot
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
+
+bot.onText(/\/register/, async (msg) => {
+	const user = msg.from!;
+	const name = user.first_name + (user.last_name ? ' ' + user.last_name : '');
+
+	// Register with Master's integration manager
+	try {
+		const result = await masterFetch('/integrations/telegram/register', {
+			method: 'POST',
+			body: JSON.stringify({ userId: user.id, name })
+		});
+		bot.sendMessage(msg.chat.id,
+			`👋 Hello ${name}!\n\n` +
+			`Your Telegram ID: \`${user.id}\`\n\n` +
+			result.message + '\n\n' +
+			'You can now:\n' +
+			'/status — Mesh status\n' +
+			'/debug — Debug snapshot\n' +
+			'/task <instruction> — Send coding task\n' +
+			'/query <question> — Query daemons\n' +
+			'Or just send a message!',
+			{ parse_mode: 'Markdown' }
+		);
+
+		// Update local allowed users list
+		if (!ALLOWED_USERS.includes(user.id)) {
+			ALLOWED_USERS.push(user.id);
+		}
+	} catch (err: any) {
+		bot.sendMessage(msg.chat.id, `❌ Registration failed: ${err.message}`);
+	}
+});
 
 bot.onText(/\/start/, (msg) => {
 	if (!isAllowed(msg.from!.id)) {
@@ -238,17 +288,21 @@ bot.on('message', (msg) => {
 	if (!msg.text || msg.text.startsWith('/')) return;
 	if (!isAllowed(msg.from!.id)) return;
 
-	// Forward as a task to the mesh
+	// Forward as a task to the mesh with origin tracking
 	masterFetch('/task', {
 		method: 'POST',
 		body: JSON.stringify({
 			instruction: msg.text,
-			from: `telegram:${msg.from!.id}`,
-			context: `Message from Telegram user ${msg.from!.first_name || msg.from!.id}`,
+			channel: 'telegram',
+			channelId: String(msg.chat.id), // Chat ID for routing results back
+			from: DAEMON_ID,
+			userId: String(msg.from!.id),
+			userName: msg.from!.first_name || String(msg.from!.id),
+			target: '*',
 		}),
 	}).then((data) => {
 		if (data.routed) {
-			bot.sendMessage(msg.chat.id, `📋 Task queued: "${msg.text!.slice(0, 60)}..."`);
+			bot.sendMessage(msg.chat.id, `📋 Task queued: "${msg.text!.slice(0, 60)}"`);
 		}
 	}).catch(() => {
 		bot.sendMessage(msg.chat.id, '❌ Could not reach mesh');

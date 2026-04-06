@@ -5,12 +5,16 @@ import { DaemonRegistry } from './registry.js';
 import { MessageRouter } from './router.js';
 import { MASTER_DISCOVERY_FILE, DEFAULT_PORT, makeId } from './types.js';
 import type { DaemonMessage } from './types.js';
+import { IntegrationManager } from './integrations.js';
+import { MessageTracker } from './messageTracker.js';
 import type { DaemonMessage, RegisterPayload, HeartbeatPayload } from './types.js';
 
 const PORT = parseInt(process.env.P10_PORT || String(DEFAULT_PORT));
 
 const registry = new DaemonRegistry();
 const router = new MessageRouter();
+const integrations = new IntegrationManager();
+const tracker = new MessageTracker();
 
 // HTTP server for health/status
 const httpServer = createServer((req, res) => {
@@ -55,6 +59,14 @@ const httpServer = createServer((req, res) => {
 					payload: { taskId, instruction: payload.instruction, context: payload.context, priority: payload.priority || 'normal' },
 					timestamp: new Date().toISOString()
 				};
+				// Track message origin for bidirectional routing
+				tracker.track(taskId, {
+					channel: payload.channel || 'rest-api',
+					channelId: payload.channelId || payload.from || 'rest',
+					userId: payload.userId,
+					userName: payload.userName
+				}, payload.instruction);
+
 				const result = router.route(message);
 				console.log(`[master] REST task: "${payload.instruction?.slice(0, 60)}" → ${target} (${result.routed ? 'routed' : 'blocked: ' + result.blocked})`);
 				res.end(JSON.stringify({ taskId, routed: result.routed, blocked: result.blocked }));
@@ -133,6 +145,72 @@ const httpServer = createServer((req, res) => {
 				res.end(JSON.stringify({ error: err.message }));
 			}
 		});
+		return;
+	}
+
+	// Integration management endpoints
+	if (req.method === 'POST' && req.url === '/integrations/telegram/setup') {
+		const result = integrations.startTelegramSetup();
+		res.end(JSON.stringify(result));
+		return;
+	}
+
+	if (req.method === 'POST' && req.url === '/integrations/telegram/token') {
+		let body = '';
+		req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+		req.on('end', async () => {
+			try {
+				const { token } = JSON.parse(body);
+				const result = await integrations.setTelegramToken(token);
+				res.end(JSON.stringify(result));
+			} catch (err: any) {
+				res.statusCode = 400;
+				res.end(JSON.stringify({ error: err.message }));
+			}
+		});
+		return;
+	}
+
+	if (req.method === 'POST' && req.url === '/integrations/telegram/register') {
+		let body = '';
+		req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+		req.on('end', () => {
+			try {
+				const { userId, name } = JSON.parse(body);
+				const result = integrations.registerTelegramUser(userId, name);
+				res.end(JSON.stringify(result));
+			} catch (err: any) {
+				res.statusCode = 400;
+				res.end(JSON.stringify({ error: err.message }));
+			}
+		});
+		return;
+	}
+
+	if (req.url === '/integrations') {
+		res.end(JSON.stringify({
+			telegram: {
+				status: integrations.getConfig().telegram?.status || 'not_configured',
+				botUsername: integrations.getConfig().telegram?.botUsername,
+				allowedUsers: integrations.getConfig().telegram?.allowedUsers?.length || 0
+			}
+		}));
+		return;
+	}
+
+	// Message history endpoint (for daemons to query)
+	if (req.url === '/messages') {
+		res.end(JSON.stringify({
+			pending: tracker.getPending(),
+			recent: tracker.getHistory(20),
+			tldr: tracker.getTldr()
+		}, null, 2));
+		return;
+	}
+
+	if (req.url?.startsWith('/messages/channel/')) {
+		const channel = req.url.split('/').pop()!;
+		res.end(JSON.stringify(tracker.getByChannel(channel), null, 2));
 		return;
 	}
 
@@ -235,6 +313,47 @@ wss.on('connection', (ws: WebSocket) => {
 				break;
 			}
 
+			case 'task_result': {
+				// A daemon completed a task — update tracker and route result back to origin
+				const taskId = message.payload?.taskId;
+				if (taskId) {
+					const tracked = tracker.get(taskId);
+					if (message.payload?.result?.error) {
+						tracker.fail(taskId, message.payload.result.error);
+					} else {
+						tracker.complete(taskId, JSON.stringify(message.payload.result).slice(0, 500));
+					}
+
+					// Route result back to origin channel
+					if (tracked?.origin.channel === 'telegram') {
+						// Send to Telegram daemon
+						const telegramDaemon = registry.getByType('custom').find(d => d.name.includes('Telegram'));
+						if (telegramDaemon) {
+							router.sendTo(telegramDaemon.id, {
+								id: makeId(),
+								from: 'master',
+								to: telegramDaemon.id,
+								type: 'task_result',
+								payload: {
+									taskId,
+									origin: tracked.origin,
+									result: message.payload.result
+								},
+								timestamp: new Date().toISOString()
+							});
+						}
+					}
+
+					console.log(`[master] Task ${taskId} completed, origin: ${tracked?.origin.channel || 'unknown'}`);
+				}
+
+				// Also forward to the original requester if it was a specific daemon
+				if (message.to && message.to !== 'master') {
+					router.route(message);
+				}
+				break;
+			}
+
 			default: {
 				// Route to target daemon
 				if (message.to && message.to !== 'master') {
@@ -281,6 +400,7 @@ wss.on('connection', (ws: WebSocket) => {
 
 // Start
 registry.start();
+integrations.autoStart();
 
 httpServer.listen(PORT, () => {
 	console.log(`\n  ┌──────────────────────────────────────┐`);
@@ -304,6 +424,7 @@ httpServer.listen(PORT, () => {
 function cleanup() {
 	console.log('\n[master] Shutting down...');
 	registry.stop();
+	integrations.stopAll();
 	try { unlinkSync(MASTER_DISCOVERY_FILE); } catch { /* ignore */ }
 	wss.close();
 	httpServer.close();
