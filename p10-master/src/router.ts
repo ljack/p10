@@ -1,9 +1,15 @@
 import type { WebSocket } from 'ws';
 import type { DaemonMessage } from './types.js';
 import { checkSecurity } from './security.js';
+import type { DaemonRegistry } from './registry.js';
 
 export class MessageRouter {
 	private connections = new Map<string, WebSocket>();
+	private registry: DaemonRegistry | null = null;
+
+	setRegistry(registry: DaemonRegistry) {
+		this.registry = registry;
+	}
 
 	addConnection(id: string, ws: WebSocket) {
 		this.connections.set(id, ws);
@@ -40,7 +46,33 @@ export class MessageRouter {
 		}
 
 		if (message.to === '*') {
-			// Broadcast to all except sender
+			// Smart routing: for tasks, prefer pi-type daemons over browser
+			if (message.type === 'task' && this.registry) {
+				const piDaemons = this.registry.getByType('pi').filter(d => d.status === 'alive');
+				if (piDaemons.length > 0) {
+					// Route to first alive pi daemon
+					const target = this.connections.get(piDaemons[0].id);
+					if (target) {
+						this.send(target, message);
+						console.log(`[router] Task routed to pi daemon: ${piDaemons[0].name}`);
+						return { routed: true };
+					}
+				}
+			}
+
+			// For queries, prefer browser daemon (has state info)
+			if (message.type === 'query' && this.registry) {
+				const browserDaemons = this.registry.getByType('browser').filter(d => d.status === 'alive');
+				if (browserDaemons.length > 0) {
+					const target = this.connections.get(browserDaemons[0].id);
+					if (target) {
+						this.send(target, message);
+						return { routed: true };
+					}
+				}
+			}
+
+			// Fallback: broadcast to all except sender
 			for (const [id, ws] of this.connections) {
 				if (id !== message.from) {
 					this.send(ws, message);

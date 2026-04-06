@@ -13,6 +13,7 @@ const PORT = parseInt(process.env.P10_PORT || String(DEFAULT_PORT));
 
 const registry = new DaemonRegistry();
 const router = new MessageRouter();
+router.setRegistry(registry);
 const integrations = new IntegrationManager();
 const tracker = new MessageTracker();
 
