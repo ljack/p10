@@ -85,7 +85,7 @@ The following specs have been created for this project (if any):
 export const POST: RequestHandler = async ({ request }) => {
 	const body = await request.json();
 	const apiKey = body.apiKey as string;
-	const model = (body.model as string) || 'claude-sonnet-4-20250514';
+	const model = (body.model as string) || 'claude-sonnet-4-6-20250627';
 	const rawMessages = body.messages as Array<{ role: string; content: string }>;
 	const specContext = (body.specContext as string) || '(no specs created yet)';
 	const errorContext = (body.errorContext as string) || '';
