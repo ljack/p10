@@ -4,9 +4,33 @@
  */
 
 import { getInstance, restartBackend } from '$lib/sandbox/container';
-import { specManager } from '$lib/specs/specManager.svelte';
+import { specManager, type PlanTask } from '$lib/specs/specManager.svelte';
 import { debugBus } from '$lib/debug/debugBus.svelte';
 import { apiExplorer } from '$lib/stores/apiExplorer.svelte';
+
+/** Push PLAN.md tasks to the kanban board via Master Daemon */
+async function syncPlanTasksToBoard(tasks: PlanTask[]) {
+	for (const task of tasks) {
+		try {
+			await fetch('/api/board', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					title: task.title,
+					description: task.description || undefined,
+					scope: 'project',
+					origin: { channel: 'browser-chat', userName: 'agent' },
+					priority: 'normal',
+					tags: task.description ? [task.description.replace('From: ', '')] : undefined,
+					humanCreated: false,
+				}),
+			});
+		} catch (err) {
+			debugBus.log('warn', 'toolExecutor', `Failed to sync task to board: ${task.title}`);
+		}
+	}
+	debugBus.log('event', 'toolExecutor', `Synced ${tasks.length} PLAN.md tasks to board`);
+}
 
 /** Canonical /_routes endpoint implementation for Express */
 const ROUTES_SNIPPET = `
@@ -47,9 +71,14 @@ export async function executeTool(
 				const filename = attrs.filename;
 				specManager.updateSpec(filename, body, 'draft');
 				if (filename === 'PLAN.md') {
-					specManager.parseTasks(body);
+					const tasks = specManager.parseTasks(body);
+					// Push unchecked tasks to the kanban board
+					const todoTasks = tasks.filter(t => t.status === 'todo');
+					if (todoTasks.length > 0) {
+						await syncPlanTasksToBoard(todoTasks);
+					}
 				}
-				return `📋 Spec updated: ${filename} (${body.length} chars)`;
+				return `📋 Spec updated: ${filename} (${body.length} chars)${filename === 'PLAN.md' ? ` — ${specManager.tasks.filter(t => t.status === 'todo').length} tasks added to board` : ''}`;
 			}
 
 			case 'write_file': {
