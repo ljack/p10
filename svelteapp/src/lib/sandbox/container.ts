@@ -3,6 +3,151 @@ import { WebContainer } from '@webcontainer/api';
 import { errorStore } from '$lib/stores/errors.svelte';
 import { debugBus } from '$lib/debug/debugBus.svelte';
 
+// Generate server content to avoid template literal nesting issues
+function generateServerContent(): string {
+	return [
+		"import express from 'express';",
+		"import cors from 'cors';",
+		"",
+		"const app = express();",
+		"app.use(cors());",
+		"app.use(express.json());",
+		"",
+		"// Health check",
+		"app.get('/api/health', (req, res) => {",
+		"  res.json({ status: 'ok', timestamp: new Date().toISOString() });",
+		"});",
+		"",
+		"// Route discovery — lists all registered API endpoints",
+		"app.get('/api/_routes', (req, res) => {",
+		"  const routes = [];",
+		"  app._router.stack.forEach((middleware) => {",
+		"    if (middleware.route) {",
+		"      const methods = Object.keys(middleware.route.methods).map(m => m.toUpperCase());",
+		"      routes.push({ methods, path: middleware.route.path });",
+		"    }",
+		"  });",
+		"  res.json(routes.filter(r => r.path !== '/api/_routes'));",
+		"});",
+		"",
+		"// Sample todos data",
+		"let todos = [",
+		"  { id: 1, title: 'Learn P10', completed: false },",
+		"  { id: 2, title: 'Build an app', completed: false },",
+		"  { id: 3, title: 'Deploy to production', completed: false }",
+		"];",
+		"",
+		"// Todos CRUD endpoints",
+		"app.get('/api/todos', (req, res) => {",
+		"  res.json(todos);",
+		"});",
+		"",
+		"app.post('/api/todos', (req, res) => {",
+		"  const newTodo = {",
+		"    id: Math.max(...todos.map(t => t.id), 0) + 1,",
+		"    title: req.body.title || 'New Todo',",
+		"    completed: false",
+		"  };",
+		"  todos.push(newTodo);",
+		"  res.status(201).json(newTodo);",
+		"});",
+		"",
+		"app.put('/api/todos/:id', (req, res) => {",
+		"  const id = parseInt(req.params.id);",
+		"  const todo = todos.find(t => t.id === id);",
+		"  if (!todo) {",
+		"    return res.status(404).json({ error: 'Todo not found' });",
+		"  }",
+		"  if (req.body.title !== undefined) todo.title = req.body.title;",
+		"  if (req.body.completed !== undefined) todo.completed = req.body.completed;",
+		"  res.json(todo);",
+		"});",
+		"",
+		"app.delete('/api/todos/:id', (req, res) => {",
+		"  const id = parseInt(req.params.id);",
+		"  const index = todos.findIndex(t => t.id === id);",
+		"  if (index === -1) {",
+		"    return res.status(404).json({ error: 'Todo not found' });",
+		"  }",
+		"  const deleted = todos.splice(index, 1)[0];",
+		"  res.json(deleted);",
+		"});",
+		"",
+		"// Example endpoint — agent will add more",
+		"app.get('/api', (req, res) => {",
+		"  res.json({ message: 'P10 API is running. Add endpoints by chatting with the agent.' });",
+		"});",
+		"",
+		"// Error handling middleware",
+		"app.use((err, req, res, next) => {",
+		"  console.error('Server error:', err);",
+		"  res.status(500).json({ error: 'Internal server error', message: err.message });",
+		"});",
+		"",
+		"// 404 handler",
+		"app.use((req, res) => {",
+		"  console.log('404 - Route not found:', req.method, req.url);",
+		"  res.status(404).json({ error: 'Route not found', method: req.method, url: req.url });",
+		"});",
+		"",
+		"const BASE_PORT = 3001;",
+		"const MAX_PORT_ATTEMPTS = 10;",
+		"",
+		"function findAvailablePort(startPort) {",
+		"  return new Promise((resolve, reject) => {",
+		"    let port = startPort;",
+		"    let attempts = 0;",
+		"",
+		"    function tryPort(currentPort) {",
+		"      if (attempts >= MAX_PORT_ATTEMPTS) {",
+		"        reject(new Error('No available ports found after ' + MAX_PORT_ATTEMPTS + ' attempts'));",
+		"        return;",
+		"      }",
+		"",
+		"      const server = app.listen(currentPort, () => {",
+		"        console.log('API server running on http://localhost:' + currentPort);",
+		"        console.log('Available endpoints:');",
+		"        console.log('   GET    /api/health');",
+		"        console.log('   GET    /api/_routes');",
+		"        console.log('   GET    /api/todos');",
+		"        console.log('   POST   /api/todos');",
+		"        console.log('   PUT    /api/todos/:id');",
+		"        console.log('   DELETE /api/todos/:id');",
+		"        resolve({ server, port: currentPort });",
+		"      });",
+		"",
+		"      server.on('error', (err) => {",
+		"        if (err.code === 'EADDRINUSE') {",
+		"          attempts++;",
+		"          console.log('Port ' + currentPort + ' in use, trying port ' + (currentPort + 1) + '...');",
+		"          tryPort(currentPort + 1);",
+		"        } else {",
+		"          console.error('Server error:', err);",
+		"          reject(err);",
+		"        }",
+		"      });",
+		"    }",
+		"",
+		"    tryPort(port);",
+		"  });",
+		"}",
+		"",
+		"// Start the server and handle port conflicts gracefully",
+		"findAvailablePort(BASE_PORT)",
+		"  .then(({ server, port }) => {",
+		"    console.log('Server successfully started on port', port);",
+		"    // If we're not using the default port, log it prominently",
+		"    if (port !== BASE_PORT) {",
+		"      console.log('WARNING: Using port ' + port + ' instead of ' + BASE_PORT + ' due to port conflict');",
+		"    }",
+		"  })",
+		"  .catch((err) => {",
+		"    console.error('Failed to start server:', err);",
+		"    process.exit(1);",
+		"  });"
+	].join('\n');
+}
+
 // --- IndexedDB Persistence ---
 // Saves/restores the entire WebContainer filesystem so work survives browser reloads.
 
@@ -301,7 +446,16 @@ export async function boot(): Promise<WebContainer> {
 			console.log(`[container] Server ready on port ${port}: ${url}`);
 			debugBus.log('event', 'container', `server-ready port=${port}`, url);
 
-			const type = port === 5173 ? 'frontend' : port === 3001 ? 'backend' : 'unknown';
+			// More flexible server type detection
+			let type: 'frontend' | 'backend' | 'unknown';
+			if (port === 5173) {
+				type = 'frontend';
+			} else if (port >= 3001 && port <= 3020) {
+				// Backend typically runs on ports 3001-3020
+				type = 'backend';
+			} else {
+				type = 'unknown';
+			}
 			const newServer: ServerInfo = { port, url, type };
 
 			const servers = [...state.servers.filter((s) => s.port !== port), newServer];
@@ -472,7 +626,16 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': 'http://localhost:3001'
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        configure: (proxy, options) => {
+          // Dynamic backend port detection
+          proxy.on('error', (err, req, res) => {
+            console.log('Proxy error, backend might be on different port:', err.message);
+          });
+        }
+      }
     }
   }
 });
@@ -565,117 +728,7 @@ console.log('[p10-bridge] API bridge loaded');
 		directory: {
 			'index.js': {
 				file: {
-					contents: `import express from 'express';
-import cors from 'cors';
-
-const app = express();
-app.use(cors());
-app.use(express.json());
-
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
-// Route discovery — lists all registered API endpoints
-app.get('/api/_routes', (req, res) => {
-  const routes = [];
-  app._router.stack.forEach((middleware) => {
-    if (middleware.route) {
-      const methods = Object.keys(middleware.route.methods).map(m => m.toUpperCase());
-      routes.push({ methods, path: middleware.route.path });
-    }
-  });
-  res.json(routes.filter(r => r.path !== '/api/_routes'));
-});
-
-// Sample todos data
-let todos = [
-  { id: 1, title: 'Learn P10', completed: false },
-  { id: 2, title: 'Build an app', completed: false },
-  { id: 3, title: 'Deploy to production', completed: false }
-];
-
-// Todos CRUD endpoints
-app.get('/api/todos', (req, res) => {
-  res.json(todos);
-});
-
-app.post('/api/todos', (req, res) => {
-  const newTodo = {
-    id: Math.max(...todos.map(t => t.id), 0) + 1,
-    title: req.body.title || 'New Todo',
-    completed: false
-  };
-  todos.push(newTodo);
-  res.status(201).json(newTodo);
-});
-
-app.put('/api/todos/:id', (req, res) => {
-  const id = parseInt(req.params.id);
-  const todo = todos.find(t => t.id === id);
-  if (!todo) {
-    return res.status(404).json({ error: 'Todo not found' });
-  }
-  if (req.body.title !== undefined) todo.title = req.body.title;
-  if (req.body.completed !== undefined) todo.completed = req.body.completed;
-  res.json(todo);
-});
-
-app.delete('/api/todos/:id', (req, res) => {
-  const id = parseInt(req.params.id);
-  const index = todos.findIndex(t => t.id === id);
-  if (index === -1) {
-    return res.status(404).json({ error: 'Todo not found' });
-  }
-  const deleted = todos.splice(index, 1)[0];
-  res.json(deleted);
-});
-
-// Example endpoint — agent will add more
-app.get('/api', (req, res) => {
-  res.json({ message: 'P10 API is running. Add endpoints by chatting with the agent.' });
-});
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Server error:', err);
-  res.status(500).json({ error: 'Internal server error', message: err.message });
-});
-
-// 404 handler
-app.use((req, res) => {
-  console.log('404 - Route not found:', req.method, req.url);
-  res.status(404).json({ error: 'Route not found', method: req.method, url: req.url });
-});
-
-const PORT = 3001;
-
-function startServer(port, retries) {
-  if (retries === undefined) retries = 10;
-  const server = app.listen(port, () => {
-    console.log('🚀 API server running on http://localhost:' + port);
-    console.log('📋 Available endpoints:');
-    console.log('   GET    /api/health');
-    console.log('   GET    /api/_routes');
-    console.log('   GET    /api/todos');
-    console.log('   POST   /api/todos');
-    console.log('   PUT    /api/todos/:id');
-    console.log('   DELETE /api/todos/:id');
-  });
-
-  server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE' && retries > 0) {
-      console.log('Port ' + port + ' in use, retrying in 1s... (' + retries + ' retries left)');
-      setTimeout(() => startServer(port, retries - 1), 1000);
-    } else {
-      console.error('Server error:', err);
-    }
-  });
-}
-
-startServer(PORT);
-`
+					contents: generateServerContent()
 				}
 			}
 		}

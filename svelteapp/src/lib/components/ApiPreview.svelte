@@ -162,7 +162,7 @@
 				{
 					type: 'p10-api-request',
 					id: requestId,
-					url: `http://localhost:3001${fetchPath}`,
+					url: `http://localhost:${backendServer?.port || 3001}${fetchPath}`,
 					method: fetchMethod,
 					headers: { 'Content-Type': 'application/json' },
 					body: fetchBody
