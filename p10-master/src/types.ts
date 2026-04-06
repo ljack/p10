@@ -40,7 +40,10 @@ export type DaemonMessageType =
 	// System
 	| 'error'
 	| 'ping'
-	| 'pong';
+	| 'pong'
+	// Event bus
+	| 'mesh_event'
+	| 'event_notification';
 
 export interface DaemonRegistration {
 	id: string;

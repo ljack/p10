@@ -2,6 +2,8 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
 	testDir: './tests',
+	testMatch: '*.spec.ts',
+	testIgnore: ['**/unit/**'],
 	timeout: 120_000, // 2 min per test — WebContainer boot is slow
 	expect: { timeout: 10_000 },
 	fullyParallel: false, // WebContainer can only run one instance at a time

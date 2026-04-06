@@ -101,12 +101,12 @@ Example for "Build auth":
     
     // Extract the JSON from the response
     const messages = session.messages;
-    const lastMessage = messages[messages.length - 1];
+    const lastMessage: any = messages[messages.length - 1];
     
     let response = '';
-    if (typeof lastMessage.content === 'string') {
+    if (typeof lastMessage?.content === 'string') {
       response = lastMessage.content;
-    } else if (Array.isArray(lastMessage.content)) {
+    } else if (Array.isArray(lastMessage?.content)) {
       response = lastMessage.content
         .filter((c: any) => c.type === 'text')
         .map((c: any) => c.text)
@@ -121,14 +121,17 @@ Example for "Build auth":
 
     const taskSpecs = JSON.parse(jsonMatch[0]);
     
-    // Convert to PipelineTask objects
-    const tasks: PipelineTask[] = taskSpecs.map((spec: any, index: number) => ({
-      id: makeId(),
-      role: spec.role as AgentRole,
-      instruction: spec.instruction,
-      status: 'pending' as const,
-      dependsOn: index > 0 ? [taskSpecs[index - 1].id] : undefined
-    }));
+    // Convert to PipelineTask objects with chained dependencies
+    const tasks: PipelineTask[] = [];
+    for (const spec of taskSpecs) {
+      tasks.push({
+        id: makeId(),
+        role: spec.role as AgentRole,
+        instruction: spec.instruction,
+        status: 'pending' as const,
+        dependsOn: tasks.length > 0 ? [tasks[tasks.length - 1].id] : undefined
+      });
+    }
 
     return tasks;
     
@@ -157,21 +160,11 @@ export async function decompose(instruction: string): Promise<TaskPipeline> {
   
   console.log(`[decomposer] Processing "${instruction}" as ${complexity} task`);
   
-  let tasks: PipelineTask[];
-  let approach: TaskPipeline['approach'];
-
-  if (complexity === 'simple') {
+  // For complex tasks, try plan-driven first, fall back to LLM
+  let tasks = complexity === 'complex' ? await decomposeFromPlan(instruction) : [];
+  const approach: TaskPipeline['approach'] = tasks.length > 0 ? 'plan-driven' : 'decomposed';
+  if (tasks.length === 0) {
     tasks = await decomposeWithLLM(instruction);
-    approach = 'decomposed';
-  } else {
-    // For complex tasks, try plan-driven first, fall back to LLM
-    tasks = await decomposeFromPlan(instruction);
-    if (tasks.length === 0) {
-      tasks = await decomposeWithLLM(instruction);
-      approach = 'decomposed';
-    } else {
-      approach = 'plan-driven';
-    }
   }
 
   const pipeline: TaskPipeline = {

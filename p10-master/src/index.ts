@@ -4,20 +4,42 @@ import { writeFileSync, unlinkSync } from 'fs';
 import { DaemonRegistry } from './registry.js';
 import { MessageRouter } from './router.js';
 import { MASTER_DISCOVERY_FILE, DEFAULT_PORT, makeId } from './types.js';
-import type { DaemonMessage } from './types.js';
 import { IntegrationManager } from './integrations.js';
 import { MessageTracker } from './messageTracker.js';
+import { MeshEventBus } from './eventBus.js';
+import { PipelineExecutor } from './pipelineExecutor.js';
 import { decompose } from './decomposer.js';
 import { pipelineStorage } from './pipelineStorage.js';
 import type { DaemonMessage, RegisterPayload, HeartbeatPayload } from './types.js';
+import type { TaskPipeline } from './decomposer.js';
 
 const PORT = parseInt(process.env.P10_PORT || String(DEFAULT_PORT));
+
+/** Format pipeline result for human-readable output */
+function formatPipelineResult(pipeline: TaskPipeline): string {
+	const lines = [`Pipeline: "${pipeline.instruction}"`];
+	lines.push(`Status: ${pipeline.status}`);
+	lines.push('');
+	for (const task of pipeline.tasks) {
+		const icon = task.status === 'completed' ? '✅' :
+			task.status === 'failed' ? '❌' :
+			task.status === 'skipped' ? '⏭' : '○';
+		lines.push(`${icon} [${task.role}] ${task.instruction.slice(0, 80)}`);
+		if (task.result) lines.push(`   → ${task.result.slice(0, 150)}`);
+	}
+	const completed = pipeline.tasks.filter(t => t.status === 'completed').length;
+	lines.push('');
+	lines.push(`${completed}/${pipeline.tasks.length} tasks completed`);
+	return lines.join('\n');
+}
 
 const registry = new DaemonRegistry();
 const router = new MessageRouter();
 router.setRegistry(registry);
 const integrations = new IntegrationManager();
 const tracker = new MessageTracker();
+const eventBus = new MeshEventBus(registry, router);
+const pipelineExecutor = new PipelineExecutor(registry, router, eventBus);
 
 // Pi CLI session tracking
 const piCliSessions = new Map<string, { id: string; userAgent: string; lastSeen: Date; created: Date; }>();
@@ -38,6 +60,9 @@ function trackPiSession(req: any): string {
 	
 	if (isNewSession) {
 		console.log(`[master] 🆕 New pi session: ${sessionId}`);
+		
+		// Emit mesh event for new pi session
+		eventBus.emit('mesh.pi.joined', sessionId, { userAgent: req.headers['user-agent'] || 'unknown' }, 'pi');
 	}
 	return sessionId;
 }
@@ -63,12 +88,8 @@ const httpServer = createServer((req, res) => {
 
 	if (req.url === '/status') {
 		// Track this pi session - be more permissive to catch all pi CLI requests
-		if (req.headers['x-pi-session-id'] || 
-			req.headers['user-agent']?.includes('pi-cli') ||
-			req.headers['user-agent']?.includes('node') || 
-			req.headers.referer?.includes('pi')) {
+		if (req.headers['x-pi-session-id'] || req.headers['user-agent']?.includes('pi-cli')) {
 			trackPiSession(req);
-			console.log(`[master] Pi session detected in /status request`);
 		}
 		
 		const daemons = registry.getAll();
@@ -106,6 +127,10 @@ const httpServer = createServer((req, res) => {
 					piCliSessions.delete(sessionId);
 					const duration = session ? Math.round((Date.now() - session.created.getTime()) / 1000) : 0;
 					console.log(`[master] 📴 Pi session quit: ${sessionId} (${duration}s session)`);
+					
+					// Emit mesh event for pi session quit
+					eventBus.emit('mesh.pi.quit', sessionId, { duration }, 'pi');
+					
 					res.end(JSON.stringify({ success: true, message: 'Session removed', duration }));
 				} else {
 					res.end(JSON.stringify({ success: false, message: 'Session not found' }));
@@ -120,10 +145,7 @@ const httpServer = createServer((req, res) => {
 
 	// REST API for fire-and-forget operations (no WebSocket needed)
 	if (req.method === 'POST' && req.url === '/task') {
-		// Track pi session - always track task requests as they're likely from pi CLI
 		trackPiSession(req);
-		console.log(`[master] Pi session tracked in /task request`);
-		
 		let body = '';
 		req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
 		req.on('end', () => {
@@ -159,10 +181,7 @@ const httpServer = createServer((req, res) => {
 	}
 
 	if (req.method === 'POST' && req.url === '/query') {
-		// Track pi session - always track query requests as they're likely from pi CLI
 		trackPiSession(req);
-		console.log(`[master] Pi session tracked in /query request`);
-		
 		let body = '';
 		req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
 		req.on('end', () => {
@@ -292,6 +311,160 @@ const httpServer = createServer((req, res) => {
 		return;
 	}
 
+	// --- Pipeline endpoints ---
+
+	if (req.method === 'POST' && req.url === '/pipeline') {
+		if (req.headers['x-pi-session-id'] || req.headers['user-agent']?.includes('pi-cli')) {
+			trackPiSession(req);
+		}
+		let body = '';
+		req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+		req.on('end', async () => {
+			try {
+				const { instruction, channel, channelId, userId, userName } = JSON.parse(body);
+				if (!instruction) {
+					res.statusCode = 400;
+					res.end(JSON.stringify({ error: 'instruction required' }));
+					return;
+				}
+
+				console.log(`[master] Pipeline request: "${instruction.slice(0, 80)}"`);
+
+				// Decompose into pipeline
+				const pipeline = await decompose(instruction);
+				pipelineStorage.store(pipeline);
+
+				// Track origin
+				tracker.track(pipeline.id, {
+					channel: channel || 'rest-api',
+					channelId: channelId || 'rest',
+					userId,
+					userName,
+				}, instruction);
+
+				// Return immediately with pipeline info (execution is async)
+				res.end(JSON.stringify({
+					pipelineId: pipeline.id,
+					approach: pipeline.approach,
+					tasks: pipeline.tasks.map(t => ({
+						id: t.id,
+						role: t.role,
+						instruction: t.instruction,
+						status: t.status,
+					})),
+					status: 'planning',
+				}));
+
+				// Execute asynchronously
+				pipelineExecutor.execute(pipeline).then((result) => {
+					console.log(`[master] Pipeline ${pipeline.id} finished: ${result.status}`);
+					if (channel === 'telegram') {
+						// Route completion to Telegram
+						const telegramDaemon = registry.getByType('custom').find(d => d.name.includes('Telegram'));
+						if (telegramDaemon) {
+							router.sendTo(telegramDaemon.id, {
+								id: makeId(),
+								from: 'master',
+								to: telegramDaemon.id,
+								type: 'task_result',
+								payload: {
+									taskId: pipeline.id,
+									origin: { channel: 'telegram', channelId, userId, userName },
+									result: {
+										success: result.status === 'completed',
+										result: formatPipelineResult(result),
+									},
+								},
+								timestamp: new Date().toISOString(),
+							});
+						}
+					}
+				}).catch((err: any) => {
+					console.error(`[master] Pipeline ${pipeline.id} error:`, err.message);
+				});
+
+			} catch (err: any) {
+				res.statusCode = 500;
+				res.end(JSON.stringify({ error: err.message }));
+			}
+		});
+		return;
+	}
+
+	if (req.url?.startsWith('/pipeline/') && req.method === 'GET') {
+		const pipelineId = req.url.split('/pipeline/')[1];
+		const pipeline = pipelineStorage.get(pipelineId);
+		if (pipeline) {
+			res.end(JSON.stringify(pipeline, null, 2));
+		} else {
+			res.statusCode = 404;
+			res.end(JSON.stringify({ error: 'Pipeline not found' }));
+		}
+		return;
+	}
+
+	if (req.url === '/pipelines' && req.method === 'GET') {
+		res.end(JSON.stringify({
+			active: pipelineStorage.getActive(),
+			recent: pipelineStorage.getRecent(10),
+		}, null, 2));
+		return;
+	}
+
+	// Event bus endpoints
+	if (req.url?.startsWith('/events')) {
+		try {
+			const urlObj = new URL(req.url, 'http://localhost');
+			if (urlObj.pathname === '/events') {
+				const limit = parseInt(urlObj.searchParams.get('limit') || '50');
+				res.end(JSON.stringify({
+					events: eventBus.getHistory(limit),
+					stats: eventBus.getStats()
+				}, null, 2));
+				return;
+			}
+		} catch (err) {
+			// Fallback for malformed URLs
+			res.end(JSON.stringify({
+				events: eventBus.getHistory(50),
+				stats: eventBus.getStats()
+			}, null, 2));
+			return;
+		}
+	}
+
+	if (req.method === 'POST' && req.url === '/events/emit') {
+		let body = '';
+		req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+		req.on('end', () => {
+			try {
+				const { type, source, data, scope } = JSON.parse(body);
+				eventBus.emit(type, source || 'unknown', data, scope);
+				res.end(JSON.stringify({ success: true }));
+			} catch (err: any) {
+				res.statusCode = 400;
+				res.end(JSON.stringify({ error: err.message }));
+			}
+		});
+		return;
+	}
+
+	if (req.method === 'POST' && req.url === '/events/subscribe') {
+		let body = '';
+		req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+		req.on('end', () => {
+			try {
+				const { daemonId, pattern, handler } = JSON.parse(body);
+				const subscriptionId = eventBus.subscribe(daemonId, pattern, handler);
+				res.end(JSON.stringify({ subscriptionId }));
+			} catch (err: any) {
+				res.statusCode = 400;
+				res.end(JSON.stringify({ error: err.message }));
+			}
+		});
+		return;
+	}
+
 	if (req.url?.startsWith('/messages/channel/')) {
 		const channel = req.url.split('/').pop()!;
 		res.end(JSON.stringify(tracker.getByChannel(channel), null, 2));
@@ -354,6 +527,10 @@ wss.on('connection', (ws: WebSocket) => {
 				}, daemonId);
 
 				console.log(`[master] ✅ ${payload.name} connected (${daemonId})`);
+				
+				// Emit mesh event for daemon registration
+				eventBus.emit('mesh.daemon.joined', daemonId, { name: payload.name, type: payload.type, capabilities: payload.capabilities });
+				
 				break;
 			}
 
@@ -398,8 +575,11 @@ wss.on('connection', (ws: WebSocket) => {
 			}
 
 			case 'task_result': {
-				// A daemon completed a task — update tracker and route result back to origin
+				// A daemon completed a task — notify pipeline executor + update tracker
 				const taskId = message.payload?.taskId;
+				if (taskId) {
+					pipelineExecutor.handleTaskResult(taskId, message.payload?.result);
+				}
 				if (taskId) {
 					const tracked = tracker.get(taskId);
 					if (message.payload?.result?.error) {

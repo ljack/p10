@@ -11,10 +11,11 @@ echo "🔗 Starting P10 Daemon Mesh..."
 echo "   Base: $BASE_DIR"
 echo ""
 
-# Kill any existing processes
-lsof -ti :7777 | xargs kill -9 2>/dev/null || true
-lsof -ti :3333 | xargs kill -9 2>/dev/null || true
-pkill -f "p10-pi-daemon" 2>/dev/null || true
+# Kill any existing server processes (LISTEN-only to avoid killing pi CLI clients)
+lsof -ti :7777 -sTCP:LISTEN | xargs kill 2>/dev/null || true
+lsof -ti :3333 -sTCP:LISTEN | xargs kill 2>/dev/null || true
+pkill -f "p10-pi-daemon/src" 2>/dev/null || true
+pkill -f "p10-telegram/src" 2>/dev/null || true
 sleep 1
 
 # 1. Start Master Daemon
