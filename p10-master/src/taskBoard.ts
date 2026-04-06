@@ -45,6 +45,7 @@ export interface BoardTask {
 	parentId?: string;
 	tags?: string[];
 	humanCreated?: boolean;
+	autoPickup?: boolean;
 	analysis?: TaskAnalysis;
 	createdAt: string;
 	startedAt?: string;

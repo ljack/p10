@@ -43,7 +43,9 @@ export type DaemonMessageType =
 	| 'pong'
 	// Event bus
 	| 'mesh_event'
-	| 'event_notification';
+	| 'event_notification'
+	| 'emit_event'
+	| 'activity_notification';
 
 export interface DaemonRegistration {
 	id: string;

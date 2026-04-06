@@ -21,6 +21,22 @@ let currentTask: string | null = null;
 let lastAction: string = 'started';
 let taskCount = 0;
 let errorCount = 0;
+let idleSince: string = new Date().toISOString();
+
+// --- Activity Events ---
+
+function emitActivity(type: string, data: any) {
+	client.send('master', 'emit_event', {
+		type: `agent.${type}`,
+		data: { agentId: DAEMON_ID, ...data },
+	});
+}
+
+function emitIdle() {
+	idleSince = new Date().toISOString();
+	emitActivity('idle', { idleSince, taskCount, lastAction });
+	console.log(`[pi-daemon] 💤 Idle`);
+}
 
 // Load memory
 function loadMemory(file: string): string {
@@ -350,10 +366,13 @@ async function handleTask(payload: any): Promise<any> {
 	appendToHistory(`Task: ${instruction.slice(0, 100)}`);
 
 	console.log(`\n[pi-daemon] 📋 Task: ${instruction}`);
+	emitActivity('task.started', { taskId: payload?.taskId, title: instruction.slice(0, 100) });
 
 	const session = await getSession(undefined, instruction);
 	if (!session) {
 		currentTask = null;
+		emitActivity('task.failed', { taskId: payload?.taskId, title: instruction.slice(0, 100), error: 'Pi agent not available' });
+		emitIdle();
 		return { error: 'Pi agent not available' };
 	}
 
@@ -369,6 +388,8 @@ async function handleTask(payload: any): Promise<any> {
 		currentTask = null;
 		lastAction = `completed: ${instruction.slice(0, 40)}`;
 		appendToHistory(`Completed: ${instruction.slice(0, 100)}`);
+		emitActivity('task.done', { taskId: payload?.taskId, title: instruction.slice(0, 100), result: result.slice(0, 200) });
+		emitIdle();
 
 		return { success: true, result: result.slice(0, 2000) };
 	} catch (err: any) {
@@ -376,6 +397,8 @@ async function handleTask(payload: any): Promise<any> {
 		errorCount++;
 		lastAction = `failed: ${instruction.slice(0, 40)}`;
 		appendToHistory(`Failed: ${instruction.slice(0, 100)} — ${err.message}`);
+		emitActivity('task.failed', { taskId: payload?.taskId, title: instruction.slice(0, 100), error: err.message });
+		emitIdle();
 		return { error: err.message };
 	}
 }
@@ -405,10 +428,13 @@ async function handleTaskWithRole(payload: any): Promise<any> {
 	appendToHistory(`Task [${roleLabel}]: ${instruction.slice(0, 100)}`);
 
 	console.log(`\n[pi-daemon] 📋 [${roleLabel}] Task: ${instruction}`);
+	emitActivity('task.started', { taskId: payload?.taskId, title: instruction.slice(0, 100), role: roleLabel });
 
 	const session = await getSession(role, instruction);
 	if (!session) {
 		currentTask = null;
+		emitActivity('task.failed', { taskId: payload?.taskId, title: instruction.slice(0, 100), role: roleLabel, error: 'Pi agent not available' });
+		emitIdle();
 		return { error: 'Pi agent not available' };
 	}
 
@@ -431,6 +457,8 @@ async function handleTaskWithRole(payload: any): Promise<any> {
 		currentTask = null;
 		lastAction = `[${roleLabel}] completed: ${instruction.slice(0, 40)}`;
 		appendToHistory(`Completed [${roleLabel}]: ${instruction.slice(0, 100)}`);
+		emitActivity('task.done', { taskId: payload?.taskId, title: instruction.slice(0, 100), role: roleLabel, result: result.slice(0, 200) });
+		emitIdle();
 
 		return { success: true, role: roleLabel, result: result.slice(0, 2000) };
 	} catch (err: any) {
@@ -438,6 +466,8 @@ async function handleTaskWithRole(payload: any): Promise<any> {
 		errorCount++;
 		lastAction = `[${roleLabel}] failed: ${instruction.slice(0, 40)}`;
 		appendToHistory(`Failed [${roleLabel}]: ${instruction.slice(0, 100)} — ${err.message}`);
+		emitActivity('task.failed', { taskId: payload?.taskId, title: instruction.slice(0, 100), role: roleLabel, error: err.message });
+		emitIdle();
 		return { error: err.message, role: roleLabel };
 	}
 }

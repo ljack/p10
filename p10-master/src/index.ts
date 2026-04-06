@@ -17,6 +17,7 @@ import { PlanSync } from './planSync.js';
 import { TaskAnalyst } from './taskAnalyst.js';
 import { boardMemory } from './boardMemory.js';
 import { GroomingAgent } from './groomingAgent.js';
+import { AutoScheduler } from './autoScheduler.js';
 import type { DaemonMessage, RegisterPayload, HeartbeatPayload } from './types.js';
 import type { TaskPipeline } from './decomposer.js';
 
@@ -48,6 +49,19 @@ const tracker = new MessageTracker();
 const eventBus = new MeshEventBus(registry, router);
 const pipelineExecutor = new PipelineExecutor(registry, router, eventBus);
 
+// Channel activity tracking (for smart Telegram notifications)
+const channelActivity = new Map<string, Date>();
+
+function trackChannelActivity(channel: string) {
+	channelActivity.set(channel, new Date());
+}
+
+function isChannelActive(channel: string, windowMs: number = 60 * 60 * 1000): boolean {
+	const lastActive = channelActivity.get(channel);
+	if (!lastActive) return false;
+	return (Date.now() - lastActive.getTime()) < windowMs;
+}
+
 // Wire task board into event bus
 taskBoard.setEventBus(eventBus);
 
@@ -69,14 +83,39 @@ const groomingAgent = new GroomingAgent(taskBoard, boardMemory, router, registry
 });
 groomingAgent.start();
 
+// Auto-scheduler: assign planned tasks to idle agents
+const autoScheduler = new AutoScheduler(taskBoard, router, registry, eventBus, tracker);
+
 // When board tasks move to done/failed, update PLAN.md checkboxes
 eventBus.subscribe('master', 'board.task.moved', 'plan-sync');
-// Hook into event bus to trigger PLAN.md updates
+// Hook into event bus to trigger PLAN.md updates + auto-scheduler + Telegram forwarding
 const origEmit = eventBus.emit.bind(eventBus);
 eventBus.emit = (type: string, source: string, data: any, scope?: any) => {
 	origEmit(type, source, data, scope);
+
+	// PLAN.md sync
 	if (type === 'board.task.moved' && (data?.to === 'done' || data?.to === 'failed')) {
 		planSync.updatePlanFile();
+	}
+
+	// Auto-scheduler: idle agent wants work
+	if (type === 'agent.idle' && data?.agentId) {
+		autoScheduler.handleAgentIdle(data.agentId);
+	}
+
+	// Smart Telegram notifications: forward agent events if human was recently active
+	if (type.startsWith('agent.') && isChannelActive('telegram')) {
+		const telegramDaemon = registry.getByType('custom').find(d => d.name.includes('Telegram'));
+		if (telegramDaemon) {
+			router.sendTo(telegramDaemon.id, {
+				id: makeId(),
+				from: 'master',
+				to: telegramDaemon.id,
+				type: 'activity_notification',
+				payload: { type, source, data },
+				timestamp: new Date().toISOString(),
+			});
+		}
 	}
 };
 
@@ -201,8 +240,10 @@ const httpServer = createServer((req, res) => {
 					timestamp: new Date().toISOString()
 				};
 				// Track message origin for bidirectional routing
+				const channel = payload.channel || 'rest-api';
+				trackChannelActivity(channel);
 				tracker.track(taskId, {
-					channel: payload.channel || 'rest-api',
+					channel,
 					channelId: payload.channelId || payload.from || 'rest',
 					userId: payload.userId,
 					userName: payload.userName
@@ -244,6 +285,7 @@ const httpServer = createServer((req, res) => {
 		req.on('end', () => {
 			try {
 				const payload = JSON.parse(body);
+				if (payload.channel) trackChannelActivity(payload.channel);
 				const target = payload.target || '*';
 				const queryId = makeId();
 
@@ -379,6 +421,7 @@ const httpServer = createServer((req, res) => {
 		req.on('end', async () => {
 			try {
 				const { instruction, channel, channelId, userId, userName } = JSON.parse(body);
+				if (channel) trackChannelActivity(channel);
 				if (!instruction) {
 					res.statusCode = 400;
 					res.end(JSON.stringify({ error: 'instruction required' }));
@@ -905,6 +948,16 @@ wss.on('connection', (ws: WebSocket) => {
 				break;
 			}
 
+			case 'emit_event': {
+				// Daemon wants to emit a mesh event (e.g., agent.task.started)
+				const evtType = message.payload?.type;
+				const evtData = message.payload?.data;
+				if (evtType) {
+					eventBus.emit(evtType, message.from || 'unknown', evtData);
+				}
+				break;
+			}
+
 			default: {
 				// Route to target daemon
 				if (message.to && message.to !== 'master') {
@@ -979,6 +1032,7 @@ function cleanup() {
 	planSync.unwatch();
 	taskAnalyst.stop();
 	groomingAgent.stop();
+	autoScheduler.stop();
 	try { unlinkSync(MASTER_DISCOVERY_FILE); } catch { /* ignore */ }
 	wss.close();
 	httpServer.close();

@@ -133,10 +133,42 @@ function connectToMaster() {
 	ws.on('error', () => { /* will trigger close */ });
 }
 
+// Format activity events for Telegram
+function formatActivityForTelegram(payload: any): string | null {
+	const t = payload?.type || '';
+	const d = payload?.data || {};
+
+	switch (t) {
+		case 'agent.task.started':
+			return `🤖 Agent started: "${d.title || '?'}"${d.role ? ` (${d.role})` : ''}`;
+		case 'agent.task.done':
+			return `✅ Agent done: "${d.title || '?'}"`;
+		case 'agent.task.failed':
+			return `❌ Agent failed: "${d.title || '?'}" — ${(d.error || 'unknown').slice(0, 100)}`;
+		case 'agent.idle':
+			return `💤 Agent idle (${d.taskCount || 0} tasks completed)`;
+		default:
+			return null;
+	}
+}
+
 // Handle messages from the mesh
 function handleMeshMessage(msg: any) {
 	if (msg.type === 'register_ack') {
 		console.log(`[telegram] Registered as ${msg.payload?.id}`);
+	}
+
+	// Activity notifications from master (smart — only sent if human was recently active)
+	if (msg.type === 'activity_notification') {
+		const text = formatActivityForTelegram(msg.payload);
+		if (text) {
+			// Send to all allowed users
+			for (const userId of ALLOWED_USERS) {
+				bot.sendMessage(userId, text).catch(() => {
+					console.log(`[telegram] Could not send activity to ${userId}`);
+				});
+			}
+		}
 	}
 
 	// Handle task results routed back from Master

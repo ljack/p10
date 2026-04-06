@@ -9,9 +9,83 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
-import { readFileSync, existsSync, openSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, openSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { join } from "node:path";
+import { homedir } from "node:os";
+
+// --- Activity Feed Config ---
+
+type ActivityVerbosity = 'off' | 'minimal' | 'normal' | 'verbose';
+
+const CONFIG_PATH = join(homedir(), '.pi', 'p10-mesh.json');
+
+function loadConfig(): { activityFeed: ActivityVerbosity } {
+	try {
+		if (existsSync(CONFIG_PATH)) {
+			const data = JSON.parse(readFileSync(CONFIG_PATH, 'utf-8'));
+			return { activityFeed: data.activityFeed || 'normal' };
+		}
+	} catch { /* ignore */ }
+	return { activityFeed: 'normal' };
+}
+
+function saveConfig(config: { activityFeed: ActivityVerbosity }) {
+	try {
+		writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
+	} catch { /* ignore */ }
+}
+
+let activityVerbosity: ActivityVerbosity = loadConfig().activityFeed;
+
+function matchesVerbosity(eventType: string): boolean {
+	if (activityVerbosity === 'off') return false;
+	if (activityVerbosity === 'verbose') return true;
+
+	// minimal: only agent.* events
+	if (activityVerbosity === 'minimal') {
+		return eventType.startsWith('agent.');
+	}
+
+	// normal: agent events + pipeline progress + daemon join/leave
+	return eventType.startsWith('agent.') ||
+		eventType.startsWith('pipeline.') ||
+		eventType.startsWith('mesh.daemon.') ||
+		eventType.startsWith('mesh.pi.');
+}
+
+function formatActivityEvent(event: any): string {
+	const t = event.type || '';
+	const d = event.data || {};
+	const agent = d.agentId ? `[${d.agentId}]` : `[${event.source}]`;
+
+	switch (t) {
+		case 'agent.task.started':
+			return `🔄 ${agent} started: "${d.title || '?'}"${d.role ? ` (${d.role})` : ''}`;
+		case 'agent.task.done':
+			return `✅ ${agent} done: "${d.title || '?'}"`;
+		case 'agent.task.failed':
+			return `❌ ${agent} failed: "${d.title || '?'}" — ${d.error || 'unknown'}`;
+		case 'agent.idle':
+			return `💤 ${agent} idle (${d.taskCount || 0} tasks completed)`;
+		case 'pipeline.started':
+			return `🚀 Pipeline started: "${d.instruction?.slice(0, 60) || '?'}" (${d.taskCount} tasks)`;
+		case 'pipeline.completed':
+			return `${d.status === 'completed' ? '✅' : '❌'} Pipeline ${d.status}: ${d.completedTasks}/${d.totalTasks} tasks`;
+		case 'mesh.daemon.joined':
+			return `🟢 ${d.name || event.source} joined (${d.type || 'unknown'})`;
+		case 'mesh.pi.joined':
+			return `📱 Pi CLI session connected`;
+		case 'mesh.pi.quit':
+			return `📴 Pi CLI session disconnected (${d.duration || 0}s)`;
+		case 'board.task.added':
+			return `📋 Board: new task "${d.task?.title?.slice(0, 60) || '?'}"`;
+		case 'board.task.moved':
+			return `📋 Board: "${d.task?.title?.slice(0, 40) || '?'}" ${d.from} → ${d.to}`;
+		default:
+			return `📡 ${t} from ${event.source}`;
+	}
+}
 
 const DISCOVERY_FILE = "/tmp/p10-master.json";
 
@@ -334,7 +408,10 @@ function handleMeshWsMessage(msg: any) {
 
 		case 'mesh_event':
 		case 'event_notification': {
-			// Mesh events — could route to p10-mesh-events extension
+			const event = msg.payload;
+			if (event?.type && matchesVerbosity(event.type)) {
+				ctx.ui.notify(formatActivityEvent(event), "info");
+			}
 			break;
 		}
 	}
@@ -811,6 +888,29 @@ export default function (pi: ExtensionAPI) {
 				ctx.ui.notify(sections.join('\n'), 'info');
 			} catch (err: any) {
 				ctx.ui.notify(`❌ ${err.message}`, 'error');
+			}
+		},
+	});
+
+	pi.registerCommand("mesh-activity", {
+		description: "Configure mesh activity feed: /mesh-activity [off|minimal|normal|verbose]",
+		handler: async (args, ctx) => {
+			const level = args?.trim().toLowerCase();
+			if (level && ['off', 'minimal', 'normal', 'verbose'].includes(level)) {
+				activityVerbosity = level as ActivityVerbosity;
+				saveConfig({ activityFeed: activityVerbosity });
+				ctx.ui.notify(`📡 Activity feed: ${activityVerbosity} (saved)`, "info");
+			} else {
+				const levels = {
+					off: 'No activity notifications',
+					minimal: 'Agent events only (task start/done/fail/idle)',
+					normal: 'Agent + pipeline + daemon join/leave',
+					verbose: 'All events including board mutations',
+				};
+				const lines = Object.entries(levels).map(([k, v]) =>
+					`  ${k === activityVerbosity ? '▶' : ' '} ${k}: ${v}`
+				);
+				ctx.ui.notify(`📡 Activity feed: ${activityVerbosity}\n${lines.join('\n')}\n\nUsage: /mesh-activity [off|minimal|normal|verbose]`, "info");
 			}
 		},
 	});
