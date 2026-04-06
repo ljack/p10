@@ -20,6 +20,7 @@ import { GroomingAgent } from './groomingAgent.js';
 import { AutoScheduler } from './autoScheduler.js';
 import type { DaemonMessage, RegisterPayload, HeartbeatPayload } from './types.js';
 import type { TaskPipeline } from './decomposer.js';
+import { runManager } from './autonomousRun.js';
 
 const PORT = parseInt(process.env.P10_PORT || String(DEFAULT_PORT));
 
@@ -48,6 +49,8 @@ const integrations = new IntegrationManager();
 const tracker = new MessageTracker();
 const eventBus = new MeshEventBus(registry, router);
 const pipelineExecutor = new PipelineExecutor(registry, router, eventBus);
+runManager.setExecutor(pipelineExecutor);
+runManager.setEventBus(eventBus);
 
 // Channel activity tracking (for smart Telegram notifications)
 const channelActivity = new Map<string, Date>();
@@ -530,6 +533,87 @@ const httpServer = createServer((req, res) => {
 			active: pipelineStorage.getActive(),
 			recent: pipelineStorage.getRecent(10),
 		}, null, 2));
+		return;
+	}
+
+	// --- Autonomous Run endpoints ---
+
+	if (req.method === 'POST' && req.url === '/run') {
+		let body = '';
+		req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+		req.on('end', () => {
+			try {
+				const { instruction, planContent, planFile } = JSON.parse(body);
+				if (!instruction) {
+					res.statusCode = 400;
+					res.end(JSON.stringify({ error: 'instruction required' }));
+					return;
+				}
+				runManager.start({ instruction, planContent, planFile }).then((run) => {
+					res.end(JSON.stringify({
+						runId: run.id,
+						status: run.status,
+						taskCount: run.tasks.length,
+						planSource: run.planSource,
+						tasks: run.tasks.map(t => ({ title: t.title, phase: t.phase, status: t.status })),
+					}));
+				}).catch((err: any) => {
+					res.statusCode = 500;
+					res.end(JSON.stringify({ error: err.message }));
+				});
+			} catch (err: any) {
+				res.statusCode = 400;
+				res.end(JSON.stringify({ error: err.message }));
+			}
+		});
+		return;
+	}
+
+	if (req.url?.startsWith('/run/') && req.method === 'GET') {
+		const runId = req.url.split('/run/')[1];
+		const run = runManager.get(runId);
+		if (run) {
+			res.end(JSON.stringify(run, null, 2));
+		} else {
+			res.statusCode = 404;
+			res.end(JSON.stringify({ error: 'Run not found' }));
+		}
+		return;
+	}
+
+	if (req.url === '/runs' && req.method === 'GET') {
+		res.end(JSON.stringify({
+			active: runManager.getActive(),
+			recent: runManager.getRecent(10),
+		}, null, 2));
+		return;
+	}
+
+	if (req.method === 'POST' && req.url?.match(/^\/run\/[^/]+\/pause$/)) {
+		const runId = req.url.split('/')[2];
+		const result = runManager.pause(runId);
+		res.statusCode = result.success ? 200 : 400;
+		res.end(JSON.stringify(result));
+		return;
+	}
+
+	if (req.method === 'POST' && req.url?.match(/^\/run\/[^/]+\/resume$/)) {
+		const runId = req.url.split('/')[2];
+		runManager.resume(runId).then((result) => {
+			res.statusCode = result.success ? 200 : 400;
+			res.end(JSON.stringify(result));
+		}).catch((err: any) => {
+			res.statusCode = 500;
+			res.end(JSON.stringify({ error: err.message }));
+		});
+		return;
+	}
+
+	if (req.method === 'POST' && req.url?.match(/^\/run\/[^/]+\/cancel$/)) {
+		const runId = req.url.split('/')[2];
+		const result = runManager.cancel(runId);
+		res.statusCode = result.success ? 200 : 400;
+		res.end(JSON.stringify(result));
 		return;
 	}
 

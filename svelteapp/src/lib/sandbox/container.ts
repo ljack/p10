@@ -124,9 +124,9 @@ export async function boot(): Promise<WebContainer> {
 	try {
 		try {
 			instance = await WebContainer.boot();
-		} catch (bootErr) {
+		} catch (bootErr: any) {
 			// Handle 'single instance' error by attempting reset
-			if (bootErr.message?.includes('single WebContainer instance')) {
+			if (bootErr?.message?.includes('single WebContainer instance')) {
 				console.log('[container] Single instance error, attempting recovery...');
 				await resetContainer();
 				// Retry after reset

@@ -711,6 +711,144 @@ export default function (pi: ExtensionAPI) {
 		},
 	});
 
+	// --- Autonomous Run tools ---
+
+	pi.registerTool({
+		name: "mesh_run",
+		label: "Autonomous Run",
+		description: "Start an autonomous development run. Reads PLAN.md tasks (or takes an instruction), decomposes each into pipelines, and executes them sequentially. Fire-and-forget — generates a morning report when done. This is P10's 'ship it by night' mode.",
+		parameters: Type.Object({
+			instruction: Type.String({ description: "What to build — e.g. 'Build everything in PLAN.md' or 'Build a todo app with auth'" }),
+			planContent: Type.Optional(Type.String({ description: "Raw PLAN.md content. If provided, unchecked tasks are extracted and executed." })),
+			planFile: Type.Optional(Type.String({ description: "Path to PLAN.md file on disk. Alternative to planContent." })),
+		}),
+		async execute(_toolCallId, params) {
+			const data = await masterFetch("/run", {
+				method: "POST",
+				body: JSON.stringify(params),
+			});
+
+			if (data.error) {
+				return { content: [{ type: "text", text: `❌ Run failed: ${data.error}` }], details: {} };
+			}
+
+			const lines = [
+				`🌙 Autonomous run started: ${data.runId}`,
+				`Source: ${data.planSource}`,
+				`Tasks (${data.taskCount}):`,
+				"",
+				...(data.tasks || []).map((t: any, i: number) =>
+					`  ${i + 1}. [${t.phase}] ${t.title}`
+				),
+				"",
+				"Running autonomously. Check status with mesh_run_status.",
+				"Morning report will be generated when complete.",
+			];
+			return { content: [{ type: "text", text: lines.join("\n") }], details: {} };
+		},
+	});
+
+	pi.registerTool({
+		name: "mesh_run_status",
+		label: "Run Status",
+		description: "Check the status of autonomous runs — shows active/recent runs with task progress and morning reports.",
+		parameters: Type.Object({
+			runId: Type.Optional(Type.String({ description: "Specific run ID. If omitted, shows all active/recent runs." })),
+		}),
+		async execute(_toolCallId, params) {
+			if (params.runId) {
+				const data = await masterFetch(`/run/${params.runId}`);
+				if (data.error) {
+					return { content: [{ type: "text", text: `❌ ${data.error}` }], details: {} };
+				}
+				// If there's a report, show it
+				if (data.report) {
+					return { content: [{ type: "text", text: data.report }], details: {} };
+				}
+				// Otherwise show progress
+				const lines = [
+					`Run: ${data.id}`,
+					`Instruction: "${data.instruction}"`,
+					`Status: ${data.status}`,
+					`Progress: ${data.stats.completed}/${data.stats.totalTasks} completed, ${data.stats.failed} failed`,
+					"",
+					...data.tasks.map((t: any) => {
+						const icon = t.status === 'completed' ? '✅' :
+							t.status === 'running' ? '🔄' :
+							t.status === 'failed' ? '❌' :
+							t.status === 'skipped' ? '⏭' : '○';
+						let line = `  ${icon} ${t.title}`;
+						if (t.result) line += `\n     → ${t.result.slice(0, 150)}`;
+						return line;
+					}),
+				];
+				return { content: [{ type: "text", text: lines.join("\n") }], details: {} };
+			} else {
+				const data = await masterFetch("/runs");
+				const lines = [
+					`Active runs: ${data.active?.length || 0}`,
+					`Recent runs: ${data.recent?.length || 0}`,
+					"",
+					...(data.active || []).map((r: any) =>
+						`${r.status === 'paused' ? '⏸' : '🌙'} ${r.id}: "${r.instruction.slice(0, 50)}" — ${r.stats.completed}/${r.stats.totalTasks} tasks`
+					),
+					...(data.recent || []).filter((r: any) => !['running','paused','preparing'].includes(r.status)).map((r: any) =>
+						`${r.status === 'completed' ? '✅' : '❌'} ${r.id}: "${r.instruction.slice(0, 50)}" — ${r.status}`
+					),
+				];
+				return { content: [{ type: "text", text: lines.join("\n") }], details: {} };
+			}
+		},
+	});
+
+	pi.registerTool({
+		name: "mesh_run_pause",
+		label: "Pause Run",
+		description: "Pause an autonomous run. Current pipeline will finish, then the run pauses.",
+		parameters: Type.Object({
+			runId: Type.String({ description: "Run ID to pause" }),
+		}),
+		async execute(_toolCallId, params) {
+			const data = await masterFetch(`/run/${params.runId}/pause`, { method: "POST" });
+			return {
+				content: [{ type: "text", text: data.success ? `⏸ ${data.message}` : `❌ ${data.message}` }],
+				details: {},
+			};
+		},
+	});
+
+	pi.registerTool({
+		name: "mesh_run_resume",
+		label: "Resume Run",
+		description: "Resume a paused autonomous run from where it left off.",
+		parameters: Type.Object({
+			runId: Type.String({ description: "Run ID to resume" }),
+		}),
+		async execute(_toolCallId, params) {
+			const data = await masterFetch(`/run/${params.runId}/resume`, { method: "POST" });
+			return {
+				content: [{ type: "text", text: data.success ? `▶ ${data.message}` : `❌ ${data.message}` }],
+				details: {},
+			};
+		},
+	});
+
+	pi.registerTool({
+		name: "mesh_run_cancel",
+		label: "Cancel Run",
+		description: "Cancel an autonomous run. Current task finishes, remaining tasks skipped.",
+		parameters: Type.Object({
+			runId: Type.String({ description: "Run ID to cancel" }),
+		}),
+		async execute(_toolCallId, params) {
+			const data = await masterFetch(`/run/${params.runId}/cancel`, { method: "POST" });
+			return {
+				content: [{ type: "text", text: data.success ? `⛔ ${data.message}` : `❌ ${data.message}` }],
+				details: {},
+			};
+		},
+	});
+
 	pi.registerTool({
 		name: "mesh_board",
 		label: "Mesh Board",

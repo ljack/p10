@@ -139,3 +139,36 @@
 [backend] Erro
 - [2026-04-06T20:29:34.918Z] Task: You are a task analyst for a software development project. Analyze this new task and provide structu
 - [2026-04-06T20:29:46.859Z] Completed: You are a task analyst for a software development project. Analyze this new task and provide structu
+- [2026-04-06T21:51:32.645Z] Task [api_agent]: Create notes data model and implement GET /api/notes (return all notes) and POST /api/notes (create 
+- [2026-04-06T21:53:32.655Z] Task [review_agent]: The previous task failed. Diagnose and fix the issue.
+
+Failed task (api_agent): "Create notes data m
+- [2026-04-06T21:53:57.441Z] Completed [api_agent]: Create notes data model and implement GET /api/notes (return all notes) and POST /api/notes (create 
+- [2026-04-06T21:54:55.687Z] Completed [review_agent]: The previous task failed. Diagnose and fix the issue.
+
+Failed task (api_agent): "Create notes data m
+- [2026-04-06T21:54:55.692Z] Task [api_agent]: Implement DELETE /api/notes/:id endpoint. Return 404 if note not found, 200 on successful deletion.
+- [2026-04-06T21:56:55.694Z] Task [review_agent]: The previous task failed. Diagnose and fix the issue.
+
+Failed task (api_agent): "Implement DELETE /a
+- [2026-04-06T21:57:09.355Z] Completed [api_agent]: Implement DELETE /api/notes/:id endpoint. Return 404 if note not found, 200 on successful deletion.
+- [2026-04-06T21:58:53.499Z] Completed [review_agent]: The previous task failed. Diagnose and fix the issue.
+
+Failed task (api_agent): "Implement DELETE /a
+- [2026-04-06T21:58:53.500Z] Task [web_agent]: Create a notes list component that fetches from GET /api/notes and displays each note's title and bo
+- [2026-04-06T22:00:33.701Z] Completed [web_agent]: Create a notes list component that fetches from GET /api/notes and displays each note's title and bo
+- [2026-04-06T22:00:35.706Z] Task [web_agent]: Create an add note form with title and body input fields. On submit, POST to /api/notes and refresh 
+- [2026-04-06T22:02:09.907Z] Completed [web_agent]: Create an add note form with title and body input fields. On submit, POST to /api/notes and refresh 
+- [2026-04-06T22:02:11.910Z] Task [web_agent]: Add delete buttons to each note in the list. On click, call DELETE /api/notes/:id and refresh the li
+- [2026-04-06T22:03:21.830Z] Completed [web_agent]: Add delete buttons to each note in the list. On click, call DELETE /api/notes/:id and refresh the li
+- [2026-04-06T22:03:23.835Z] Task [review_agent]: Test complete notes CRUD flow: create a note via form, verify it appears in list, delete it, verify 
+- [2026-04-06T22:05:36.340Z] Task [api_agent]: Create notes API endpoints: GET /api/notes (list all), POST /api/notes (create with title/content), 
+- [2026-04-06T22:06:21.950Z] Completed [review_agent]: Test complete notes CRUD flow: create a note via form, verify it appears in list, delete it, verify 
+- [2026-04-06T22:07:20.177Z] Completed [api_agent]: Create notes API endpoints: GET /api/notes (list all), POST /api/notes (create with title/content), 
+- [2026-04-06T22:07:25.181Z] Task [web_agent]: Create a NotesList component that fetches and displays notes from GET /api/notes. Show title, conten
+- [2026-04-06T22:09:19.364Z] Completed [web_agent]: Create a NotesList component that fetches and displays notes from GET /api/notes. Show title, conten
+- [2026-04-06T22:09:21.368Z] Task [web_agent]: Create an AddNoteForm component with title and content input fields. On submit, POST to /api/notes a
+- [2026-04-06T22:10:58.454Z] Completed [web_agent]: Create an AddNoteForm component with title and content input fields. On submit, POST to /api/notes a
+- [2026-04-06T22:11:00.457Z] Task [web_agent]: Implement delete functionality: when delete button clicked, send DELETE request to /api/notes/:id an
+- [2026-04-06T22:12:24.038Z] Completed [web_agent]: Implement delete functionality: when delete button clicked, send DELETE request to /api/notes/:id an
+- [2026-04-06T22:12:26.042Z] Task [review_agent]: Test the complete notes flow: verify notes list loads, add a new note, verify it appears, delete a n
