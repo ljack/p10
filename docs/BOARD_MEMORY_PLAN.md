@@ -3,15 +3,15 @@
 > Like LLM memory management: active context stays small, past knowledge gets compressed into
 > reflections with paths back to originals. The board never gets overwhelming, but nothing is truly lost.
 
-**Status: 🔨 IN PROGRESS**
+**Status: ✅ CORE COMPLETE**
 
 ## Progress
 
-- [ ] **M1** — Memory data model + file-backed store
-- [ ] **M2** — Grooming agent (consolidate → archive → reflect)
-- [ ] **M3** — Memory tree API (browse, search, rebirth)
+- [x] **M1** — Memory data model + file-backed store (`boardMemory.ts`)
+- [x] **M2** — Grooming agent (`groomingAgent.ts`) — archive → consolidate → reflect → prune
+- [x] **M3** — Memory tree API (GET /board/memory, search, browse, rebirth)
 - [ ] **M4** — Board UI: memory indicator + browse panel
-- [ ] **M5** — Context injection (new tasks get relevant memories)
+- [x] **M5** — Context injection (analyst injects relevant memories into task analysis)
 
 ## The Problem
 
