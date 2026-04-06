@@ -3,6 +3,131 @@ import { WebContainer } from '@webcontainer/api';
 import { errorStore } from '$lib/stores/errors.svelte';
 import { debugBus } from '$lib/debug/debugBus.svelte';
 
+// --- IndexedDB Persistence ---
+// Saves/restores the entire WebContainer filesystem so work survives browser reloads.
+
+const IDB_NAME = 'p10';
+const IDB_STORE = 'snapshots';
+const IDB_KEY = 'p10-snapshot';
+const SAVE_INTERVAL = 30_000; // Auto-save every 30s
+
+interface FsSnapshot {
+	files: Record<string, string>;  // path → content (text files only)
+	savedAt: string;
+	fileCount: number;
+}
+
+let saveTimer: ReturnType<typeof setInterval> | null = null;
+
+function openIdb(): Promise<IDBDatabase> {
+	return new Promise((resolve, reject) => {
+		const req = indexedDB.open(IDB_NAME, 1);
+		req.onupgradeneeded = () => {
+			const db = req.result;
+			if (!db.objectStoreNames.contains(IDB_STORE)) {
+				db.createObjectStore(IDB_STORE);
+			}
+		};
+		req.onsuccess = () => resolve(req.result);
+		req.onerror = () => reject(req.error);
+	});
+}
+
+async function saveSnapshotToIdb(snapshot: FsSnapshot): Promise<void> {
+	const db = await openIdb();
+	return new Promise((resolve, reject) => {
+		const tx = db.transaction(IDB_STORE, 'readwrite');
+		tx.objectStore(IDB_STORE).put(snapshot, IDB_KEY);
+		tx.oncomplete = () => { db.close(); resolve(); };
+		tx.onerror = () => { db.close(); reject(tx.error); };
+	});
+}
+
+async function loadSnapshotFromIdb(): Promise<FsSnapshot | null> {
+	const db = await openIdb();
+	return new Promise((resolve, reject) => {
+		const tx = db.transaction(IDB_STORE, 'readonly');
+		const req = tx.objectStore(IDB_STORE).get(IDB_KEY);
+		req.onsuccess = () => { db.close(); resolve(req.result ?? null); };
+		req.onerror = () => { db.close(); reject(req.error); };
+	});
+}
+
+/** Read all text files from WebContainer (excluding node_modules, .git) */
+async function readAllFiles(container: WebContainer, dir = '.', prefix = ''): Promise<Record<string, string>> {
+	const files: Record<string, string> = {};
+	const entries = await container.fs.readdir(dir, { withFileTypes: true });
+
+	for (const entry of entries) {
+		if (entry.name === 'node_modules' || entry.name === '.git') continue;
+		const path = prefix ? `${prefix}/${entry.name}` : entry.name;
+
+		if (entry.isDirectory()) {
+			const sub = await readAllFiles(container, `${dir}/${entry.name}`, path);
+			Object.assign(files, sub);
+		} else {
+			try {
+				files[path] = await container.fs.readFile(`${dir}/${entry.name}`, 'utf-8');
+			} catch {
+				// skip binary files
+			}
+		}
+	}
+	return files;
+}
+
+/** Mount files from a snapshot into the WebContainer */
+async function mountSnapshot(container: WebContainer, snapshot: FsSnapshot): Promise<void> {
+	// Convert flat file map to WebContainer mount tree
+	const tree: Record<string, any> = {};
+
+	for (const [path, content] of Object.entries(snapshot.files)) {
+		const parts = path.split('/');
+		let node = tree;
+
+		for (let i = 0; i < parts.length - 1; i++) {
+			if (!node[parts[i]]) node[parts[i]] = { directory: {} };
+			node = node[parts[i]].directory;
+		}
+
+		node[parts[parts.length - 1]] = { file: { contents: content } };
+	}
+
+	await container.mount(tree);
+}
+
+/** Save current WebContainer state to IndexedDB */
+export async function saveSnapshot(): Promise<void> {
+	if (!instance) return;
+	try {
+		const files = await readAllFiles(instance);
+		const snapshot: FsSnapshot = {
+			files,
+			savedAt: new Date().toISOString(),
+			fileCount: Object.keys(files).length,
+		};
+		await saveSnapshotToIdb(snapshot);
+		console.log(`[container] Snapshot saved: ${snapshot.fileCount} files`);
+		debugBus.log('event', 'container', `Snapshot saved (${snapshot.fileCount} files)`);
+	} catch (err) {
+		console.warn('[container] Snapshot save failed:', err);
+	}
+}
+
+function startAutoSave() {
+	stopAutoSave();
+	saveTimer = setInterval(saveSnapshot, SAVE_INTERVAL);
+	// Also save on page unload
+	window.addEventListener('beforeunload', saveSnapshot);
+}
+
+function stopAutoSave() {
+	if (saveTimer) {
+		clearInterval(saveTimer);
+		saveTimer = null;
+	}
+}
+
 let instance: WebContainer | null = null;
 let booting = false;
 let backendProcess: any = null;
@@ -136,7 +261,23 @@ export async function boot(): Promise<WebContainer> {
 			}
 		}
 		
-		await instance.mount(starterFiles);
+		// Try to restore from IndexedDB snapshot, fall back to starter files
+		let restored = false;
+		try {
+			const snapshot = await loadSnapshotFromIdb();
+			if (snapshot && snapshot.fileCount > 0) {
+				console.log(`[container] Restoring snapshot: ${snapshot.fileCount} files from ${snapshot.savedAt}`);
+				debugBus.log('event', 'container', `Restoring ${snapshot.fileCount} files from snapshot`);
+				await mountSnapshot(instance, snapshot);
+				restored = true;
+			}
+		} catch (err) {
+			console.warn('[container] Snapshot restore failed, using starter files:', err);
+		}
+
+		if (!restored) {
+			await instance.mount(starterFiles);
+		}
 
 		setState({ status: 'booting' });
 		const installProcess = await instance.spawn('npm', ['install']);
@@ -146,6 +287,14 @@ export async function boot(): Promise<WebContainer> {
 		}
 
 		setState({ status: 'ready' });
+
+		// Start auto-saving to IndexedDB
+		startAutoSave();
+
+		// Take initial snapshot if this is a fresh start
+		if (!restored) {
+			await saveSnapshot();
+		}
 
 		// Listen for ANY server-ready event (frontend or backend)
 		instance.on('server-ready', (port, url) => {

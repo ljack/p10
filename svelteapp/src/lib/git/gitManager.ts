@@ -10,7 +10,7 @@
  * - This avoids isomorphic-git's fs compatibility issues with WebContainer
  */
 
-import { getInstance } from '$lib/sandbox/container';
+import { getInstance, saveSnapshot } from '$lib/sandbox/container';
 
 export interface GitCommit {
 	oid: string;
@@ -102,6 +102,10 @@ export async function commitAll(message: string): Promise<string> {
 	});
 
 	console.log('[git] Committed:', oid.slice(0, 7), message, `(${files.size} files)`);
+
+	// Persist to IndexedDB so work survives browser reload
+	saveSnapshot().catch(() => {});
+
 	return oid;
 }
 
