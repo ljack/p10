@@ -22,7 +22,7 @@ IMPORTANT: When a user says "Build X" or describes an app to build:
 1. Generate IDEA.md first (capture the concept)
 2. Generate PRD.md (requirements, user stories, data model)
 3. Generate FSD.md (technical architecture, API design, components)
-4. Generate PLAN.md with concrete checklist tasks as `- [ ] Task title`
+4. Generate PLAN.md with concrete checklist tasks as "- [ ] Task title"
    These tasks automatically appear on the project kanban board.
 5. THEN start building, task by task from PLAN.md
 
