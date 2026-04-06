@@ -6,6 +6,7 @@
 	import { specManager } from '$lib/specs/specManager.svelte';
 	import { browserDaemon } from '$lib/daemon/browserDaemon.svelte';
 	import PipelinePanel from './PipelinePanel.svelte';
+	import MeshPanel from './MeshPanel.svelte';
 	import { pipelineStore } from '$lib/stores/pipelines.svelte';
 
 	type BottomTab = 'files' | 'git' | 'specs' | 'pipelines' | 'tests' | 'mesh' | 'settings';
@@ -217,22 +218,7 @@
 					<div class="mt-2 italic">Testing in MVP 2+</div>
 				</div>
 			{:else if activeTab === 'mesh'}
-				<div class="text-xs space-y-2">
-					<div class="flex items-center gap-2">
-						<span class="{browserDaemon.connected ? 'text-accent' : 'text-muted'}">●</span>
-						<span class="font-bold">Master Daemon</span>
-						<span class="text-muted">{browserDaemon.connected ? 'connected' : 'not connected'}</span>
-					</div>
-					{#if browserDaemon.connected}
-						<div class="pl-4 text-muted">
-							<div>System TLDR: {browserDaemon.masterTldr || 'waiting...'}</div>
-						</div>
-					{:else}
-						<div class="pl-4 text-muted italic">
-							Start the mesh: <code class="bg-background px-1 rounded">./start-mesh.sh</code>
-						</div>
-					{/if}
-				</div>
+				<MeshPanel />
 			{:else if activeTab === 'settings'}
 				<div class="text-xs space-y-3">
 					<div>
