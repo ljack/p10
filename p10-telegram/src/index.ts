@@ -19,15 +19,36 @@ import TelegramBot from 'node-telegram-bot-api';
 import WebSocket from 'ws';
 import { readFileSync, existsSync } from 'fs';
 
-// Config
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const ALLOWED_USERS = (process.env.P10_ALLOWED_USERS || '').split(',').filter(Boolean).map(Number);
+// Config — load from config.json or env vars
 const MASTER_DISCOVERY_FILE = '/tmp/p10-master.json';
 const DAEMON_ID = 'telegram-' + Math.random().toString(36).slice(2, 6);
+const CONFIG_FILE = new URL('../config.json', import.meta.url).pathname;
+
+interface TelegramConfig {
+	botToken: string;
+	botUsername: string;
+	allowedUsers: Array<{ id: number; name: string }>;
+}
+
+function loadConfig(): TelegramConfig | null {
+	try {
+		if (existsSync(CONFIG_FILE)) {
+			return JSON.parse(readFileSync(CONFIG_FILE, 'utf-8'));
+		}
+	} catch { /* ignore */ }
+	return null;
+}
+
+const config = loadConfig();
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || config?.botToken;
+const ALLOWED_USERS = process.env.P10_ALLOWED_USERS
+	? process.env.P10_ALLOWED_USERS.split(',').filter(Boolean).map(Number)
+	: (config?.allowedUsers?.map(u => u.id) || []);
 
 if (!BOT_TOKEN) {
-	console.error('❌ Set TELEGRAM_BOT_TOKEN environment variable');
-	console.error('   Get one from @BotFather on Telegram');
+	console.error('❌ No bot token found.');
+	console.error('   Run setup first: npx tsx src/setup.ts');
+	console.error('   Or set TELEGRAM_BOT_TOKEN env var.');
 	process.exit(1);
 }
 

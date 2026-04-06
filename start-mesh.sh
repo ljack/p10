@@ -78,7 +78,7 @@ echo "  The Browser Daemon will auto-connect to the mesh."
 echo ""
 # 4. Optional: Start Telegram Bot
 TG_PID=""
-if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
+if [ -n "$TELEGRAM_BOT_TOKEN" ] || [ -f "$BASE_DIR/p10-telegram/config.json" ]; then
   echo "  4/4 Starting Telegram Bot..."
   cd "$BASE_DIR/p10-telegram"
   nohup npx tsx src/index.ts > /tmp/p10-telegram.log 2>&1 &
