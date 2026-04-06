@@ -975,7 +975,8 @@ export default function (pi: ExtensionAPI) {
 						const prio = t.priority === 'urgent' ? '🔴 ' : t.priority === 'high' ? '🟠 ' : t.priority === 'low' ? '🔵 ' : '';
 						const origin = t.origin?.channel ? ` [${t.origin.channel}]` : '';
 						const pipeline = t.pipelineId ? ' [pipeline]' : '';
-						lines.push(`  ${prio}${t.title.slice(0, 70)}${origin}${pipeline}`);
+						const scope = t.scope === 'platform' ? ' ⚙️' : '';
+						lines.push(`  ${prio}${t.title.slice(0, 70)}${origin}${pipeline}${scope}`);
 						// Show inline subtasks if present
 						if (t.subtasks?.length) {
 							for (const s of t.subtasks) {
@@ -1056,6 +1057,7 @@ export default function (pi: ExtensionAPI) {
 			description: Type.Optional(Type.String({ description: "Additional context or details" })),
 			priority: Type.Optional(Type.String({ description: "Priority: low, normal, high, urgent. Default: normal" })),
 			tags: Type.Optional(Type.Array(Type.String(), { description: "Tags for categorization" })),
+			scope: Type.Optional(Type.String({ description: "Scope: 'project' (default) or 'platform' (P10 system tasks)" })),
 			humanCreated: Type.Optional(Type.Boolean({ description: "Whether this was from a human (triggers AI analysis). Default: true" })),
 		}),
 		async execute(_toolCallId, params) {
@@ -1067,6 +1069,7 @@ export default function (pi: ExtensionAPI) {
 						description: params.description,
 						priority: params.priority || 'normal',
 						tags: params.tags,
+						scope: params.scope || 'project',
 						humanCreated: params.humanCreated !== false,
 						origin: { channel: 'pi-cli', userName: 'user' },
 					}),

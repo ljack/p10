@@ -18,6 +18,7 @@ const BOARD_FILE = join(DATA_DIR, 'board.json');
 
 export type TaskColumn = 'planned' | 'in-progress' | 'done' | 'failed' | 'blocked';
 export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent';
+export type TaskScope = 'project' | 'platform';
 
 export interface BoardSubtask {
 	id: string;
@@ -57,6 +58,7 @@ export interface BoardTask {
 		userName?: string;
 	};
 	priority: TaskPriority;
+	scope?: TaskScope;
 	parentId?: string;
 	tags?: string[];
 	humanCreated?: boolean;
@@ -139,6 +141,7 @@ export class TaskBoard {
 		parentId?: string;
 		tags?: string[];
 		humanCreated?: boolean;
+		scope?: TaskScope;
 		pipelineId?: string;
 		subtasks?: BoardSubtask[];
 	}): BoardTask {
@@ -150,6 +153,7 @@ export class TaskBoard {
 			column: opts.column || 'planned',
 			origin: opts.origin || { channel: 'system' },
 			priority: opts.priority || 'normal',
+			scope: opts.scope,
 			parentId: opts.parentId,
 			tags: opts.tags,
 			humanCreated: opts.humanCreated,

@@ -278,7 +278,8 @@ bot.onText(/\/board/, async (msg) => {
 			for (const t of tasks) {
 				const prio = t.priority === 'urgent' ? '🔴 ' : t.priority === 'high' ? '🟠 ' : '';
 				const pl = t.pipelineId ? ' 🔗' : '';
-				sections.push(`  ${prio}${t.title.slice(0, 60)}${pl}`);
+				const scope = t.scope === 'platform' ? ' ⚙️' : '';
+				sections.push(`  ${prio}${t.title.slice(0, 60)}${pl}${scope}`);
 				if (t.subtasks?.length) {
 					for (const s of t.subtasks) {
 						const si = s.status === 'completed' ? '✅' : s.status === 'active' ? '🔄' : s.status === 'failed' ? '❌' : '○';
