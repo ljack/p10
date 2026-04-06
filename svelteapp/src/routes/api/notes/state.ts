@@ -37,12 +37,33 @@ export function deleteNoteById(id: string): boolean {
 	return notesState.notes.length < initialLength;
 }
 
+/** Update a note by ID */
+export function updateNoteById(id: string, updates: { title: string; content: string }): Note | null {
+	const noteIndex = notesState.notes.findIndex(note => note.id === id);
+	if (noteIndex === -1) {
+		return null;
+	}
+	
+	const existingNote = notesState.notes[noteIndex];
+	const updatedNote: Note = {
+		...existingNote,
+		title: updates.title,
+		content: updates.content,
+		updatedAt: new Date() // Update the timestamp
+	};
+	
+	notesState.notes[noteIndex] = updatedNote;
+	return updatedNote;
+}
+
 /** Update existing notes to include both timestamps if missing */
 export function migrateNotesToIncludeTimestamps(): void {
 	const now = new Date();
 	notesState.notes = notesState.notes.map(note => ({
 		...note,
-		createdAt: note.createdAt || now,
-		updatedAt: note.updatedAt || now
+		// Ensure createdAt exists (use current time if missing)
+		createdAt: note.createdAt ? new Date(note.createdAt) : now,
+		// Ensure updatedAt exists (use current time if missing)
+		updatedAt: note.updatedAt ? new Date(note.updatedAt) : now
 	}));
 }

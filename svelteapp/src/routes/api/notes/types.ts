@@ -27,6 +27,10 @@ export type CreateNoteResponse = {
 	note: Note;
 };
 
+export type UpdateNoteResponse = {
+	note: Note;
+};
+
 export type DeleteNoteResponse = {
 	message: string;
 	id: string;

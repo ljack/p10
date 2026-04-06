@@ -49,28 +49,42 @@ Creates a new note with auto-generated ID and timestamps.
 }
 ```
 
-### DELETE /api/notes/:id
+### PUT /api/notes/:id
 
-Deletes a note by ID.
+Updates an existing note by ID. Updates the `updatedAt` timestamp automatically.
+
+**Request:**
+```json
+{
+  "title": "Updated Note Title",
+  "content": "Updated note content"
+}
+```
 
 **Response (200 OK):**
 ```json
 {
-  "message": "Note deleted successfully",
-  "id": "note-1"
+  "note": {
+    "id": "note-1",
+    "title": "Updated Note Title",
+    "content": "Updated note content",
+    "createdAt": "2024-04-07T00:00:00.000Z",
+    "updatedAt": "2024-04-07T01:00:00.000Z"
+  }
 }
 ```
 
 **Response (404 Not Found):**
 ```json
 {
-  "message": "Note not found"
+  "message": "Note not found",
+  "status": 404
 }
 ```
 
 ### DELETE /api/notes/:id
 
-Deletes a note by its ID.
+Deletes a note by ID.
 
 **Response (200 OK):**
 ```json
@@ -144,12 +158,24 @@ const response = await fetch('/api/notes', {
 
 const { note } = await response.json();
 
-// Delete a note
-const deleteResponse = await fetch('/api/notes/note-1', {
-  method: 'DELETE'
+// Update a note
+const updateData = {
+  title: 'Updated Shopping List',
+  content: 'Milk, Eggs, Bread, Butter'
+};
+
+const updateResponse = await fetch('/api/notes/note-1', {
+  method: 'PUT',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify(updateData)
 });
 
-const { message } = await deleteResponse.json();
+if (updateResponse.ok) {
+  const { note: updatedNote } = await updateResponse.json();
+  console.log(updatedNote.updatedAt); // New timestamp
+}
 
 // Delete a note
 const deleteResponse = await fetch('/api/notes/note-1', {
@@ -173,8 +199,10 @@ curl -X POST http://localhost:5173/api/notes \
   -H "Content-Type: application/json" \
   -d '{"title": "My Note", "content": "Note content here"}'
 
-# Delete a note
-curl -X DELETE http://localhost:5173/api/notes/note-1
+# Update a note
+curl -X PUT http://localhost:5173/api/notes/note-1 \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Updated Note", "content": "Updated content"}'
 
 # Delete a note
 curl -X DELETE http://localhost:5173/api/notes/note-1
