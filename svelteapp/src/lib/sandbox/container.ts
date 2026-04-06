@@ -501,16 +501,31 @@ app.use((req, res) => {
 });
 
 const PORT = 3001;
-app.listen(PORT, () => {
-  console.log('🚀 API server running on http://localhost:' + PORT);
-  console.log('📋 Available endpoints:');
-  console.log('   GET    /api/health');
-  console.log('   GET    /api/_routes');
-  console.log('   GET    /api/todos');
-  console.log('   POST   /api/todos');
-  console.log('   PUT    /api/todos/:id');
-  console.log('   DELETE /api/todos/:id');
-});
+
+function startServer(port, retries) {
+  if (retries === undefined) retries = 10;
+  const server = app.listen(port, () => {
+    console.log('🚀 API server running on http://localhost:' + port);
+    console.log('📋 Available endpoints:');
+    console.log('   GET    /api/health');
+    console.log('   GET    /api/_routes');
+    console.log('   GET    /api/todos');
+    console.log('   POST   /api/todos');
+    console.log('   PUT    /api/todos/:id');
+    console.log('   DELETE /api/todos/:id');
+  });
+
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE' && retries > 0) {
+      console.log('Port ' + port + ' in use, retrying in 1s... (' + retries + ' retries left)');
+      setTimeout(() => startServer(port, retries - 1), 1000);
+    } else {
+      console.error('Server error:', err);
+    }
+  });
+}
+
+startServer(PORT);
 `
 				}
 			}

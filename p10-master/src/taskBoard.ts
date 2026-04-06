@@ -12,10 +12,21 @@ import type { MeshEventBus } from './eventBus.js';
 export type TaskColumn = 'planned' | 'in-progress' | 'done' | 'failed' | 'blocked';
 export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent';
 
+export interface TaskAnalysis {
+	rewrittenTitle?: string;
+	questions?: string[];
+	ideas?: string[];
+	dependencies?: string[];
+	suggestedTags?: string[];
+	summary?: string;
+	analyzedAt: string;
+}
+
 export interface BoardTask {
 	id: string;
 	title: string;
 	instruction: string;
+	description?: string;
 	column: TaskColumn;
 	assignedTo?: string;
 	origin: {
@@ -26,6 +37,8 @@ export interface BoardTask {
 	priority: TaskPriority;
 	parentId?: string;
 	tags?: string[];
+	humanCreated?: boolean;
+	analysis?: TaskAnalysis;
 	createdAt: string;
 	startedAt?: string;
 	completedAt?: string;
@@ -60,21 +73,25 @@ export class TaskBoard {
 		id?: string;
 		title: string;
 		instruction?: string;
+		description?: string;
 		column?: TaskColumn;
 		origin?: BoardTask['origin'];
 		priority?: TaskPriority;
 		parentId?: string;
 		tags?: string[];
+		humanCreated?: boolean;
 	}): BoardTask {
 		const task: BoardTask = {
 			id: opts.id || makeId(),
 			title: opts.title,
 			instruction: opts.instruction || opts.title,
+			description: opts.description,
 			column: opts.column || 'planned',
 			origin: opts.origin || { channel: 'system' },
 			priority: opts.priority || 'normal',
 			parentId: opts.parentId,
 			tags: opts.tags,
+			humanCreated: opts.humanCreated,
 			createdAt: new Date().toISOString(),
 		};
 
@@ -172,6 +189,41 @@ export class TaskBoard {
 		};
 
 		return snapshot;
+	}
+
+	/** Get human-created tasks that haven't been analyzed yet */
+	getUnanalyzed(maxAgeMs: number = Infinity): BoardTask[] {
+		const now = Date.now();
+		return Array.from(this.tasks.values()).filter(t =>
+			t.humanCreated &&
+			!t.analysis &&
+			(now - new Date(t.createdAt).getTime()) >= 0 &&
+			(maxAgeMs === Infinity || (now - new Date(t.createdAt).getTime()) <= maxAgeMs)
+		);
+	}
+
+	/** Set analysis result on a task */
+	setAnalysis(taskId: string, analysis: TaskAnalysis): BoardTask | null {
+		const task = this.tasks.get(taskId);
+		if (!task) return null;
+
+		task.analysis = analysis;
+
+		// Apply rewritten title if provided
+		if (analysis.rewrittenTitle && analysis.rewrittenTitle !== task.title) {
+			const original = task.title;
+			task.title = analysis.rewrittenTitle;
+			if (!task.description) task.description = original; // keep original as description
+		}
+
+		// Apply suggested tags
+		if (analysis.suggestedTags?.length) {
+			task.tags = [...new Set([...(task.tags || []), ...analysis.suggestedTags])];
+		}
+
+		this.emitChange('board.task.analyzed', task);
+		console.log(`[board] 🔍 Analyzed: "${task.title.slice(0, 60)}"`);
+		return task;
 	}
 
 	/** Find task by title substring (for linking from PLAN.md etc.) */

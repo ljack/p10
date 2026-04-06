@@ -60,7 +60,7 @@ function hasComplexKeywords(instruction: string): boolean {
  * LLM-based task decomposition for simple requests
  */
 export async function decomposeWithLLM(instruction: string): Promise<PipelineTask[]> {
-  const { AuthStorage, ModelRegistry, createAgentSession } = await import('@mariozechner/pi-coding-agent');
+  const { AuthStorage, ModelRegistry, SessionManager, createAgentSession } = await import('@mariozechner/pi-coding-agent');
   
   const authStorage = AuthStorage.create();
   const modelRegistry = ModelRegistry.create(authStorage);
@@ -72,7 +72,7 @@ export async function decomposeWithLLM(instruction: string): Promise<PipelineTas
   }
 
   const { session } = await createAgentSession({
-    sessionManager: { inMemory: () => ({ memory: new Map() }) } as any,
+    sessionManager: SessionManager.inMemory(),
     authStorage,
     modelRegistry,
     tools: [], // No tools needed for decomposition

@@ -5,8 +5,10 @@
 	import { settings } from '$lib/stores/settings.svelte';
 	import { specManager } from '$lib/specs/specManager.svelte';
 	import { browserDaemon } from '$lib/daemon/browserDaemon.svelte';
+	import PipelinePanel from './PipelinePanel.svelte';
+	import { pipelineStore } from '$lib/stores/pipelines.svelte';
 
-	type BottomTab = 'files' | 'git' | 'specs' | 'tests' | 'mesh' | 'settings';
+	type BottomTab = 'files' | 'git' | 'specs' | 'pipelines' | 'tests' | 'mesh' | 'settings';
 
 	let activeTab = $state<BottomTab | null>(null);
 	let containerState = $state<ContainerState>({
@@ -23,6 +25,7 @@
 		{ id: 'files', label: 'Files', icon: '📁' },
 		{ id: 'git', label: 'Git Log', icon: '🔀' },
 		{ id: 'specs', label: 'Specs', icon: '📋' },
+		{ id: 'pipelines', label: 'Pipelines', icon: '🚀' },
 		{ id: 'tests', label: 'Tests', icon: '✅' },
 		{ id: 'mesh', label: 'Mesh', icon: '🔗' },
 		{ id: 'settings', label: 'Settings', icon: '⚙️' }
@@ -118,6 +121,9 @@
 					: 'text-muted hover:text-foreground'}"
 			>
 				{tab.icon} {tab.label}
+				{#if tab.id === 'pipelines' && pipelineStore.hasActive}
+					<span class="text-accent animate-pulse ml-0.5">●</span>
+				{/if}
 			</button>
 		{/each}
 
@@ -203,6 +209,8 @@
 						</div>
 					{/if}
 				</div>
+			{:else if activeTab === 'pipelines'}
+				<PipelinePanel />
 			{:else if activeTab === 'tests'}
 				<div class="text-xs text-muted">
 					<div>No tests yet.</div>

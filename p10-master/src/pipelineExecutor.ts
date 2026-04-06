@@ -38,10 +38,77 @@ export class PipelineExecutor {
 		timer: ReturnType<typeof setTimeout>;
 	}>();
 
+	// Pipelines that have been requested to cancel
+	private cancelledPipelines = new Set<string>();
+
 	constructor(registry: DaemonRegistry, router: MessageRouter, eventBus: MeshEventBus) {
 		this.registry = registry;
 		this.router = router;
 		this.eventBus = eventBus;
+	}
+
+	/**
+	 * Cancel a running pipeline. The current task will finish,
+	 * but no further tasks will be started. Remaining tasks are marked 'skipped'.
+	 */
+	cancel(pipelineId: string): { success: boolean; message: string } {
+		const pipeline = pipelineStorage.get(pipelineId);
+		if (!pipeline) return { success: false, message: 'Pipeline not found' };
+		if (pipeline.status !== 'executing') {
+			return { success: false, message: `Pipeline is ${pipeline.status}, not executing` };
+		}
+
+		this.cancelledPipelines.add(pipelineId);
+		console.log(`[executor] ⛔ Cancel requested for pipeline ${pipelineId}`);
+		return { success: true, message: 'Cancel requested — current task will finish, remaining tasks will be skipped' };
+	}
+
+	/**
+	 * Re-run a failed or completed pipeline from the first non-completed task.
+	 * Completed tasks are kept; their results are used as prior context.
+	 */
+	async rerun(pipelineId: string): Promise<{ success: boolean; message: string; pipeline?: TaskPipeline }> {
+		const pipeline = pipelineStorage.get(pipelineId);
+		if (!pipeline) return { success: false, message: 'Pipeline not found' };
+		if (pipeline.status === 'executing') {
+			return { success: false, message: 'Pipeline is still executing' };
+		}
+
+		// Reset non-completed tasks to pending
+		let firstRetryIndex = -1;
+		for (let i = 0; i < pipeline.tasks.length; i++) {
+			const task = pipeline.tasks[i];
+			if (task.status !== 'completed') {
+				if (firstRetryIndex === -1) firstRetryIndex = i;
+				task.status = 'pending';
+				task.result = undefined;
+			}
+		}
+
+		if (firstRetryIndex === -1) {
+			return { success: false, message: 'All tasks already completed — nothing to re-run' };
+		}
+
+		// Clear cancel flag if it was set
+		this.cancelledPipelines.delete(pipelineId);
+
+		pipeline.status = 'executing';
+		pipeline.completedAt = undefined;
+		pipeline.currentTaskIndex = firstRetryIndex;
+		pipelineStorage.store(pipeline);
+
+		console.log(`[executor] ↻ Re-running pipeline ${pipelineId} from task ${firstRetryIndex + 1}/${pipeline.tasks.length}`);
+
+		// Execute asynchronously
+		this.execute(pipeline).catch((err: any) => {
+			console.error(`[executor] Re-run error:`, err.message);
+		});
+
+		return {
+			success: true,
+			message: `Re-running from task ${firstRetryIndex + 1}/${pipeline.tasks.length}`,
+			pipeline,
+		};
 	}
 
 	/**
@@ -79,6 +146,37 @@ export class PipelineExecutor {
 		for (let i = 0; i < pipeline.tasks.length; i++) {
 			const task = pipeline.tasks[i];
 			pipeline.currentTaskIndex = i;
+
+			// Skip already-completed tasks (from re-run)
+			if (task.status === 'completed') {
+				taskResults.push({
+					role: task.role,
+					instruction: task.instruction,
+					result: task.result || 'Done',
+				});
+				continue;
+			}
+
+			// Check for cancellation between tasks
+			if (this.cancelledPipelines.has(pipeline.id)) {
+				this.cancelledPipelines.delete(pipeline.id);
+				// Mark remaining tasks as skipped
+				for (let j = i; j < pipeline.tasks.length; j++) {
+					if (pipeline.tasks[j].status === 'pending') {
+						pipeline.tasks[j].status = 'skipped';
+					}
+				}
+				pipeline.status = 'failed';
+				pipeline.completedAt = new Date().toISOString();
+				console.log(`[executor] ⛔ Pipeline cancelled at task ${i + 1}/${pipeline.tasks.length}`);
+				pipelineStorage.store(pipeline);
+				this.broadcastProgress(pipeline);
+				this.eventBus.emit('pipeline.cancelled', 'master', {
+					pipelineId: pipeline.id,
+					cancelledAtTask: i,
+				});
+				return pipeline;
+			}
 
 			// Check dependencies
 			if (!this.dependenciesMet(task, pipeline)) {

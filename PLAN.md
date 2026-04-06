@@ -11,6 +11,7 @@
 - [x] Telegram bot bridge
 - [x] Kanban task board UI polish
 - [ ] Multi-agent pipeline improvements
+- [ ] Task board persistence (board state lost on master restart)
 
 ## Phase 3: Polish & Testing
 - [ ] End-to-end test coverage

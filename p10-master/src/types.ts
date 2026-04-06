@@ -1,6 +1,6 @@
 /** P10 Daemon Mesh Protocol Types */
 
-export type DaemonType = 'browser' | 'pi' | 'master' | 'test' | 'deploy' | 'custom';
+export type DaemonType = 'browser' | 'pi' | 'pi-cli' | 'master' | 'test' | 'deploy' | 'custom';
 export type DaemonStatus = 'alive' | 'stale' | 'dead';
 export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
 

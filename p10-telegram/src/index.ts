@@ -310,6 +310,83 @@ bot.onText(/\/query (.+)/, async (msg, match) => {
 	}
 });
 
+// --- Guided /add flow ---
+// Tracks per-chat conversation state for multi-step task creation
+const addFlows = new Map<number, { step: 'title' | 'description' | 'priority'; title?: string; description?: string }>();
+
+bot.onText(/\/add(?:\s+(.+))?/, async (msg, match) => {
+	if (!isAllowed(msg.from!.id)) return;
+	const inlineTitle = match?.[1]?.trim();
+
+	if (inlineTitle) {
+		// Quick mode: /add <title> — skip the flow
+		addFlows.set(msg.chat.id, { step: 'description', title: inlineTitle });
+		bot.sendMessage(msg.chat.id,
+			`📋 *"${inlineTitle}"*\n\nAny more context? (or send \`-\` to skip)`,
+			{ parse_mode: 'Markdown' }
+		);
+	} else {
+		// Start guided flow
+		addFlows.set(msg.chat.id, { step: 'title' });
+		bot.sendMessage(msg.chat.id, '📋 *Add Task*\n\n1/3 What needs to be done?', { parse_mode: 'Markdown' });
+	}
+});
+
+function handleAddFlow(msg: TelegramBot.Message): boolean {
+	const flow = addFlows.get(msg.chat.id);
+	if (!flow || !msg.text) return false;
+
+	const text = msg.text.trim();
+
+	switch (flow.step) {
+		case 'title': {
+			flow.title = text;
+			flow.step = 'description';
+			bot.sendMessage(msg.chat.id, '2/3 Why / more context? (or send `-` to skip)');
+			return true;
+		}
+		case 'description': {
+			if (text !== '-') flow.description = text;
+			flow.step = 'priority';
+			bot.sendMessage(msg.chat.id, '3/3 Priority? (low / normal / high / urgent)', {
+				reply_markup: {
+					keyboard: [[{ text: 'low' }, { text: 'normal' }, { text: 'high' }, { text: 'urgent' }]],
+					one_time_keyboard: true,
+					resize_keyboard: true,
+				}
+			});
+			return true;
+		}
+		case 'priority': {
+			const priority = ['low', 'normal', 'high', 'urgent'].includes(text) ? text : 'normal';
+			addFlows.delete(msg.chat.id);
+
+			// Submit task to board
+			const userName = msg.from?.first_name || String(msg.from?.id);
+			masterFetch('/board/task', {
+				method: 'POST',
+				body: JSON.stringify({
+					title: flow.title,
+					description: flow.description,
+					humanCreated: true,
+					priority,
+					origin: { channel: 'telegram', userId: String(msg.from!.id), userName },
+				}),
+			}).then((data) => {
+				const prio = priority === 'urgent' ? '🔴 ' : priority === 'high' ? '🟠 ' : '';
+				bot.sendMessage(msg.chat.id,
+					`✅ Task added: ${prio}*${flow.title}*${flow.description ? '\n' + flow.description : ''}\n\n_AI will analyze in ~10s_`,
+					{ parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } }
+				);
+			}).catch(() => {
+				bot.sendMessage(msg.chat.id, '❌ Could not add task', { reply_markup: { remove_keyboard: true } });
+			});
+			return true;
+		}
+	}
+	return false;
+}
+
 // Default: forward free-text messages as tasks
 bot.on('message', (msg) => {
 	if (!msg.text || msg.text.startsWith('/')) return;

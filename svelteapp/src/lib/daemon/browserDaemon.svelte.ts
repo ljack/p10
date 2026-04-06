@@ -16,6 +16,7 @@ import { getState as getContainerState, getInstance } from '$lib/sandbox/contain
 import { errorStore } from '$lib/stores/errors.svelte';
 import { settings } from '$lib/stores/settings.svelte';
 import { startAutonomousWatch, stopAutonomousWatch } from './autonomousAgent';
+import { pipelineStore } from '$lib/stores/pipelines.svelte';
 
 /** Try to discover Master Daemon URL from well-known file or default */
 function discoverMasterUrl(): string {
@@ -139,6 +140,16 @@ class BrowserDaemon {
 					taskId: msg.payload?.taskId,
 					result
 				});
+				break;
+			}
+
+			case 'pipeline_progress': {
+				// Pipeline update from the executor
+				pipelineStore.update(msg.payload);
+				const p = msg.payload;
+				if (p?.status === 'completed' || p?.status === 'failed') {
+					debugBus.log('event', 'pipeline', `Pipeline ${p.status}: "${p.instruction?.slice(0, 60)}"`);
+				}
 				break;
 			}
 

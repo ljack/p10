@@ -603,6 +603,38 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.registerTool({
+		name: "mesh_pipeline_cancel",
+		label: "Cancel Pipeline",
+		description: "Cancel a running pipeline. The current task will finish, but remaining tasks will be skipped.",
+		parameters: Type.Object({
+			pipelineId: Type.String({ description: "Pipeline ID to cancel" }),
+		}),
+		async execute(_toolCallId, params) {
+			const data = await masterFetch(`/pipeline/${params.pipelineId}/cancel`, { method: "POST" });
+			return {
+				content: [{ type: "text", text: data.success ? `⛔ ${data.message}` : `❌ ${data.message}` }],
+				details: {},
+			};
+		},
+	});
+
+	pi.registerTool({
+		name: "mesh_pipeline_rerun",
+		label: "Re-run Pipeline",
+		description: "Re-run a failed or cancelled pipeline from the first non-completed task. Completed tasks are kept.",
+		parameters: Type.Object({
+			pipelineId: Type.String({ description: "Pipeline ID to re-run" }),
+		}),
+		async execute(_toolCallId, params) {
+			const data = await masterFetch(`/pipeline/${params.pipelineId}/rerun`, { method: "POST" });
+			return {
+				content: [{ type: "text", text: data.success ? `↻ ${data.message}` : `❌ ${data.message}` }],
+				details: {},
+			};
+		},
+	});
+
+	pi.registerTool({
 		name: "mesh_board",
 		label: "Mesh Board",
 		description: "Get the kanban task board from the P10 mesh — shows tasks organized by column (planned, in-progress, done, failed, blocked) with stats",

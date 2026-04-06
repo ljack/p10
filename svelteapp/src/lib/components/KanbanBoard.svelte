@@ -34,6 +34,8 @@
 	let error = $state<string | null>(null);
 	let loading = $state(true);
 	let expandedTask = $state<string | null>(null);
+	let newTaskTitle = $state('');
+	let addingTask = $state(false);
 	let pollTimer: ReturnType<typeof setInterval>;
 
 	const columns: { key: keyof Pick<BoardSnapshot, 'planned' | 'in-progress' | 'done' | 'failed' | 'blocked'>; label: string; icon: string; color: string }[] = [
@@ -59,6 +61,38 @@
 
 	function toggleExpand(taskId: string) {
 		expandedTask = expandedTask === taskId ? null : taskId;
+	}
+
+	async function addTask() {
+		const title = newTaskTitle.trim();
+		if (!title || addingTask) return;
+
+		addingTask = true;
+		try {
+			await fetch('/api/board', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					title,
+					humanCreated: true,
+					origin: { channel: 'browser', userName: 'user' },
+					priority: 'normal',
+				}),
+			});
+			newTaskTitle = '';
+			await fetchBoard();
+		} catch (err) {
+			console.error('Failed to add task:', err);
+		} finally {
+			addingTask = false;
+		}
+	}
+
+	function handleAddKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter' && !e.shiftKey) {
+			e.preventDefault();
+			addTask();
+		}
 	}
 
 	function channelIcon(channel: string): string {
@@ -151,6 +185,22 @@
 							{/if}
 						</div>
 
+						<!-- Quick add (planned column only) -->
+						{#if col.key === 'planned'}
+							<div class="px-1.5 pt-1.5">
+								<input
+									type="text"
+									bind:value={newTaskTitle}
+									onkeydown={handleAddKeydown}
+									placeholder="+ Add task..."
+									disabled={addingTask}
+									class="w-full bg-background border border-panel-border rounded px-2 py-1 text-xs
+										   text-foreground placeholder:text-muted/50 outline-none
+										   focus:border-accent/50 transition-colors disabled:opacity-50"
+								/>
+							</div>
+						{/if}
+
 						<!-- Task cards -->
 						<div class="flex-1 overflow-y-auto p-1.5 space-y-1.5">
 							{#each tasks as task (task.id)}
@@ -184,9 +234,55 @@
 										{/if}
 									</div>
 
+									<!-- Analysis badge -->
+									{#if task.analysis}
+										<div class="mt-1 flex items-center gap-1">
+											<span class="text-accent text-xs" title="AI analyzed">🔍</span>
+											{#if task.analysis.summary}
+												<span class="text-muted text-xs truncate">{task.analysis.summary.slice(0, 50)}</span>
+											{/if}
+										</div>
+									{:else if task.humanCreated}
+										<div class="mt-1">
+											<span class="text-muted/40 text-xs" title="Pending analysis">⏳ analyzing...</span>
+										</div>
+									{/if}
+
 									<!-- Expanded details -->
 									{#if expandedTask === task.id}
-										<div class="mt-2 pt-2 border-t border-panel-border space-y-1">
+										<div class="mt-2 pt-2 border-t border-panel-border space-y-1.5">
+											{#if task.description}
+												<div class="text-muted break-words italic">{task.description}</div>
+											{/if}
+											{#if task.analysis}
+												{#if task.analysis.summary}
+													<div class="text-foreground break-words">{task.analysis.summary}</div>
+												{/if}
+												{#if task.analysis.questions?.length}
+													<div>
+														<span class="text-warning">❓</span>
+														{#each task.analysis.questions as q}
+															<span class="text-muted">{q}</span>{' '}
+														{/each}
+													</div>
+												{/if}
+												{#if task.analysis.ideas?.length}
+													<div>
+														<span class="text-accent">💡</span>
+														{#each task.analysis.ideas as idea}
+															<span class="text-muted">{idea}</span>{' '}
+														{/each}
+													</div>
+												{/if}
+												{#if task.analysis.dependencies?.length}
+													<div>
+														<span>🔗</span>
+														{#each task.analysis.dependencies as dep}
+															<span class="text-muted bg-panel-border rounded px-1">{dep}</span>{' '}
+														{/each}
+													</div>
+												{/if}
+											{/if}
 											{#if task.assignedTo}
 												<div><span class="text-muted">Assigned:</span> {task.assignedTo}</div>
 											{/if}
@@ -194,7 +290,7 @@
 												<div class="text-muted break-words">{task.instruction.slice(0, 300)}</div>
 											{/if}
 											{#if task.result}
-												<div class="text-muted break-words bg-panel-bg rounded p-1 mt-1">
+												<div class="text-muted break-words bg-panel-bg rounded p-1">
 													{task.result.slice(0, 200)}{task.result.length > 200 ? '…' : ''}
 												</div>
 											{/if}

@@ -14,6 +14,7 @@ import { decompose } from './decomposer.js';
 import { pipelineStorage } from './pipelineStorage.js';
 import { taskBoard } from './taskBoard.js';
 import { PlanSync } from './planSync.js';
+import { TaskAnalyst } from './taskAnalyst.js';
 import type { DaemonMessage, RegisterPayload, HeartbeatPayload } from './types.js';
 import type { TaskPipeline } from './decomposer.js';
 
@@ -51,6 +52,12 @@ taskBoard.setEventBus(eventBus);
 // PLAN.md sync
 const planSync = new PlanSync(taskBoard);
 planSync.watch();
+
+// Task analyst agent
+const taskAnalyst = new TaskAnalyst(taskBoard, router, registry, eventBus, {
+	analysisDelayMs: parseInt(process.env.P10_ANALYSIS_DELAY || '10000'),
+});
+taskAnalyst.start();
 
 // When board tasks move to done/failed, update PLAN.md checkboxes
 eventBus.subscribe('master', 'board.task.moved', 'plan-sync');
@@ -443,6 +450,28 @@ const httpServer = createServer((req, res) => {
 		return;
 	}
 
+	// POST /pipeline/:id/cancel — cancel a running pipeline
+	if (req.method === 'POST' && req.url?.match(/^\/pipeline\/[^/]+\/cancel$/)) {
+		const pipelineId = req.url.split('/')[2];
+		const result = pipelineExecutor.cancel(pipelineId);
+		res.statusCode = result.success ? 200 : 400;
+		res.end(JSON.stringify(result));
+		return;
+	}
+
+	// POST /pipeline/:id/rerun — re-run a failed pipeline from first non-completed task
+	if (req.method === 'POST' && req.url?.match(/^\/pipeline\/[^/]+\/rerun$/)) {
+		const pipelineId = req.url.split('/')[2];
+		pipelineExecutor.rerun(pipelineId).then((result) => {
+			res.statusCode = result.success ? 200 : 400;
+			res.end(JSON.stringify({ success: result.success, message: result.message }));
+		}).catch((err: any) => {
+			res.statusCode = 500;
+			res.end(JSON.stringify({ error: err.message }));
+		});
+		return;
+	}
+
 	if (req.url === '/pipelines' && req.method === 'GET') {
 		res.end(JSON.stringify({
 			active: pipelineStorage.getActive(),
@@ -734,10 +763,11 @@ wss.on('connection', (ws: WebSocket) => {
 			}
 
 			case 'task_result': {
-				// A daemon completed a task — notify pipeline executor + update tracker
+				// A daemon completed a task — notify pipeline executor + analyst + update tracker
 				const taskId = message.payload?.taskId;
 				if (taskId) {
 					pipelineExecutor.handleTaskResult(taskId, message.payload?.result);
+					taskAnalyst.handleTaskResult(taskId, message.payload?.result);
 				}
 				if (taskId) {
 					const tracked = tracker.get(taskId);
@@ -851,6 +881,7 @@ function cleanup() {
 	registry.stop();
 	integrations.stopAll();
 	planSync.unwatch();
+	taskAnalyst.stop();
 	try { unlinkSync(MASTER_DISCOVERY_FILE); } catch { /* ignore */ }
 	wss.close();
 	httpServer.close();
