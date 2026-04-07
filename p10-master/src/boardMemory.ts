@@ -297,6 +297,16 @@ export class BoardMemory {
 		};
 	}
 
+	/** Clear all memory nodes (for project reset) */
+	clearAll(): number {
+		const count = Object.keys(this.store.nodes).length;
+		this.store.nodes = {};
+		this.store.stats = { archives: 0, memories: 0, reflections: 0 };
+		this.save();
+		console.log(`[memory] Cleared ${count} memory nodes`);
+		return count;
+	}
+
 	getFullStore(): MemoryStore {
 		return this.store;
 	}

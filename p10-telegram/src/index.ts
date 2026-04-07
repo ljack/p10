@@ -244,6 +244,7 @@ bot.onText(/\/start/, (msg) => {
 		'/status — Mesh status\n' +
 		'/board — Kanban task board\n' +
 		'/add [title] — Add task to board\n' +
+		'/newproject — Reset to new project\n' +
 		'/debug — Debug snapshot\n' +
 		'/task <instruction> — Send a coding task\n' +
 		'/query <question> — Query a daemon\n\n' +
@@ -315,6 +316,21 @@ bot.onText(/\/debug/, async (msg) => {
 			`Servers: ${s.container?.servers?.length || 0}\n` +
 			`Routes: ${s.apiExplorer?.discoveredRoutes?.length || 0}\n` +
 			`Errors: ${s.errors?.length || 0}`,
+			{ parse_mode: 'Markdown' }
+		);
+	} catch (err: any) {
+		bot.sendMessage(msg.chat.id, `❌ ${err.message}`);
+	}
+});
+
+bot.onText(/\/newproject/, async (msg) => {
+	if (!isAllowed(msg.from!.id)) return;
+	try {
+		const data = await masterFetch('/project/new', { method: 'POST' });
+		bot.sendMessage(msg.chat.id,
+			`🆕 *New Project Created*\n\n` +
+			`Cleared: ${data.cleared?.tasks || 0} tasks, ${data.cleared?.pipelines || 0} pipelines, ${data.cleared?.memory || 0} memory nodes\n\n` +
+			`WebContainer rebooting with starter template.\nPlatform tasks (⚙️) preserved.`,
 			{ parse_mode: 'Markdown' }
 		);
 	} catch (err: any) {

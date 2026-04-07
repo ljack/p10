@@ -84,6 +84,12 @@ export class MessageTracker {
 			.slice(-limit);
 	}
 
+	/** Clear all tracked messages */
+	clearAll() {
+		this.messages.clear();
+		this.history = [];
+	}
+
 	/** Get recent history */
 	getHistory(limit = 50): TrackedMessage[] {
 		return this.history.slice(-limit);

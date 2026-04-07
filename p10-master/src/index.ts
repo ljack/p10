@@ -841,6 +841,30 @@ const httpServer = createServer((req, res) => {
 		return;
 	}
 
+	// --- New Project endpoint ---
+	if (req.method === 'POST' && req.url === '/project/new') {
+		const tasksCleared = taskBoard.clearProjectTasks();
+		const pipelinesCleared = pipelineStorage.clearAll();
+		const memoryCleared = boardMemory.clearAll();
+		tracker.clearAll();
+
+		// Emit reset event so browser daemon can clear its state
+		eventBus.emit('project.reset', 'master', {
+			tasksCleared,
+			pipelinesCleared,
+			memoryCleared,
+		});
+
+		console.log(`[master] 🆕 New project: cleared ${tasksCleared} tasks, ${pipelinesCleared} pipelines, ${memoryCleared} memory nodes`);
+
+		res.end(JSON.stringify({
+			success: true,
+			cleared: { tasks: tasksCleared, pipelines: pipelinesCleared, memory: memoryCleared },
+			message: 'Project reset. WebContainer will reboot with starter template.',
+		}));
+		return;
+	}
+
 	// --- Restart endpoint ---
 	if (req.method === 'POST' && req.url === '/restart') {
 		console.log('[master] 🔄 Restart requested via API');

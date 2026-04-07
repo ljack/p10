@@ -376,6 +376,22 @@ export class TaskBoard {
 		);
 	}
 
+	/** Remove all project-scoped tasks, keep platform tasks */
+	clearProjectTasks(): number {
+		let removed = 0;
+		for (const [id, task] of this.tasks) {
+			if (task.scope !== 'platform') {
+				this.tasks.delete(id);
+				removed++;
+			}
+		}
+		if (removed > 0) {
+			this.save();
+			console.log(`[board] Cleared ${removed} project tasks`);
+		}
+		return removed;
+	}
+
 	/** Get TLDR summary */
 	getTldr(): string {
 		const board = this.getBoard();

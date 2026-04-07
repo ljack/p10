@@ -41,6 +41,12 @@ class PipelineStorage {
     return this.pipelines.delete(id);
   }
 
+  clearAll(): number {
+    const count = this.pipelines.size;
+    this.pipelines.clear();
+    return count;
+  }
+
   cleanup(olderThanHours = 24): number {
     const cutoff = Date.now() - (olderThanHours * 60 * 60 * 1000);
     let deleted = 0;

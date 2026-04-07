@@ -47,6 +47,57 @@ app.get('/api/_routes', (req, res) => {
 });
 `;
 
+/** Robust server startup that handles port conflicts */
+const SERVER_STARTUP_SNIPPET = `
+const BASE_PORT = 3001;
+const MAX_PORT_ATTEMPTS = 10;
+
+function findAvailablePort(startPort) {
+  return new Promise((resolve, reject) => {
+    let port = startPort;
+    let attempts = 0;
+
+    function tryPort(currentPort) {
+      if (attempts >= MAX_PORT_ATTEMPTS) {
+        reject(new Error('No available ports found after ' + MAX_PORT_ATTEMPTS + ' attempts'));
+        return;
+      }
+
+      const server = app.listen(currentPort, () => {
+        console.log('API server running on http://localhost:' + currentPort);
+        resolve({ server, port: currentPort });
+      });
+
+      server.on('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+          attempts++;
+          console.log('Port ' + currentPort + ' in use, trying port ' + (currentPort + 1) + '...');
+          tryPort(currentPort + 1);
+        } else {
+          console.error('Server error:', err);
+          reject(err);
+        }
+      });
+    }
+
+    tryPort(port);
+  });
+}
+
+// Start the server and handle port conflicts gracefully
+findAvailablePort(BASE_PORT)
+  .then(({ server, port }) => {
+    console.log('Server successfully started on port', port);
+    if (port !== BASE_PORT) {
+      console.log('WARNING: Using port ' + port + ' instead of ' + BASE_PORT + ' due to port conflict');
+    }
+  })
+  .catch((err) => {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  });
+`;
+
 export interface ToolResult {
 	name: string;
 	path: string;

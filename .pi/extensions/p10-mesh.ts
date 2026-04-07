@@ -1182,6 +1182,41 @@ export default function (pi: ExtensionAPI) {
 		},
 	});
 
+	pi.registerTool({
+		name: "mesh_new_project",
+		label: "New Project",
+		description: "Reset the P10 workspace to a clean state. Clears the WebContainer (back to starter template), removes project board tasks (keeps platform tasks), and clears pipeline history. Use when starting a new project.",
+		parameters: Type.Object({}),
+		async execute() {
+			try {
+				const data = await masterFetch("/project/new", { method: "POST" });
+				const lines = [
+					"🆕 New project created!",
+					"",
+					`Cleared: ${data.cleared?.tasks || 0} tasks, ${data.cleared?.pipelines || 0} pipelines, ${data.cleared?.memory || 0} memory nodes`,
+					"",
+					"WebContainer will reboot with the starter template (React + Express).",
+					"Platform tasks (⚙️) are preserved.",
+				];
+				return { content: [{ type: "text", text: lines.join("\n") }], details: {} };
+			} catch (err: any) {
+				return { content: [{ type: "text", text: `❌ Failed: ${err.message}` }], details: {} };
+			}
+		},
+	});
+
+	pi.registerCommand("new-project", {
+		description: "Reset workspace to a new project (clears board, container, pipelines)",
+		handler: async (_args, ctx) => {
+			try {
+				const data = await masterFetch("/project/new", { method: "POST" });
+				ctx.ui.notify(`🆕 New project! Cleared ${data.cleared?.tasks || 0} tasks, ${data.cleared?.pipelines || 0} pipelines. Container rebooting.`, "info");
+			} catch (err: any) {
+				ctx.ui.notify(`❌ ${err.message}`, "error");
+			}
+		},
+	});
+
 	pi.registerCommand("mesh-activity", {
 		description: "Configure mesh activity feed: /mesh-activity [off|minimal|normal|verbose]",
 		handler: async (args, ctx) => {

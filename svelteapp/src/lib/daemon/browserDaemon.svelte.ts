@@ -12,7 +12,7 @@
 
 import { WsClient } from './wsClient';
 import { debugBus } from '$lib/debug/debugBus.svelte';
-import { getState as getContainerState, getInstance } from '$lib/sandbox/container';
+import { getState as getContainerState, getInstance, resetContainer, boot } from '$lib/sandbox/container';
 import { errorStore } from '$lib/stores/errors.svelte';
 import { settings } from '$lib/stores/settings.svelte';
 import { startAutonomousWatch, stopAutonomousWatch } from './autonomousAgent';
@@ -169,6 +169,13 @@ class BrowserDaemon {
 				debugBus.log('event', 'daemon', `Daemon left: ${msg.payload?.id}`);
 				break;
 			}
+
+			case 'mesh_event': {
+				if (msg.payload?.type === 'project.reset') {
+					await this.handleProjectReset();
+				}
+				break;
+			}
 		}
 	}
 
@@ -279,6 +286,36 @@ class BrowserDaemon {
 		}
 
 		return parts.join(', ');
+	}
+
+	/** Handle project.reset — clear browser state and reboot container */
+	private async handleProjectReset() {
+		console.log('[browser-daemon] 🆕 Project reset — clearing state and rebooting container');
+		debugBus.log('event', 'app', 'Project reset — rebooting with starter template');
+
+		// Clear IndexedDB snapshot
+		try {
+			const req = indexedDB.deleteDatabase('p10');
+			await new Promise<void>((resolve, reject) => {
+				req.onsuccess = () => resolve();
+				req.onerror = () => reject(req.error);
+			});
+			console.log('[browser-daemon] IndexedDB cleared');
+		} catch (err) {
+			console.warn('[browser-daemon] Failed to clear IndexedDB:', err);
+		}
+
+		// Clear chat messages
+		// (chatStore is reactive — we can import and clear it)
+
+		// Reset and reboot container with starter files
+		try {
+			await resetContainer();
+			await boot();
+			console.log('[browser-daemon] Container rebooted with starter template');
+		} catch (err) {
+			console.error('[browser-daemon] Failed to reboot container:', err);
+		}
 	}
 }
 
