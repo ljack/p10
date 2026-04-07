@@ -17,7 +17,7 @@
 
 ## Phase 3: Platform Improvements ⚙️
 - [x] Registry cleanup: deduplicate stale daemon registrations
-- [ ] Multi-agent pipeline improvements: plan-driven decomposition + parallel execution
+- [x] Multi-agent pipeline improvements: plan-driven decomposition + parallel execution
 - [ ] End-to-end test coverage: pipeline flow, board, activity events
 - [ ] Production deployment pipeline: packaging, process management, monitoring
 - [ ] Documentation site: architecture, API reference, setup guide
