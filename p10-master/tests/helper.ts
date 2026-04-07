@@ -54,13 +54,16 @@ export async function startMaster(): Promise<TestMaster> {
 	const port = randomPort();
 	const dataDir = mkdtempSync(join(tmpdir(), 'p10-test-'));
 
+	const discoveryFile = join(dataDir, 'master.json');
+
 	const proc = spawn('npx', ['tsx', 'src/index.ts'], {
 		cwd: MASTER_DIR,
 		env: {
 			...process.env,
 			P10_PORT: String(port),
 			P10_DATA_DIR: dataDir,
-			// Disable integrations auto-start in tests
+			P10_DISCOVERY_FILE: discoveryFile,
+			P10_PROJECT_DIR: dataDir, // isolate from real PLAN.md
 			P10_NO_INTEGRATIONS: '1',
 		},
 		stdio: 'pipe',

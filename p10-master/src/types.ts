@@ -111,7 +111,7 @@ export interface PipelineProgressPayload {
 }
 
 // Well-known discovery file
-export const MASTER_DISCOVERY_FILE = '/tmp/p10-master.json';
+export const MASTER_DISCOVERY_FILE = process.env.P10_DISCOVERY_FILE || '/tmp/p10-master.json';
 export const DEFAULT_PORT = 7777;
 
 export function makeId(): string {
