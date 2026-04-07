@@ -86,11 +86,23 @@ export class MessageRouter {
 			return { routed: true };
 		}
 
-		// Point-to-point
-		const target = this.connections.get(message.to);
+		// Point-to-point: try exact ID first
+		let target = this.connections.get(message.to);
 		if (target) {
 			this.send(target, message);
 			return { routed: true };
+		}
+
+		// Resolve by daemon type (e.g., 'pi' → first alive pi daemon)
+		if (this.registry) {
+			const byType = this.registry.getByType(message.to).filter(d => d.status === 'alive');
+			if (byType.length > 0) {
+				target = this.connections.get(byType[0].id);
+				if (target) {
+					this.send(target, message);
+					return { routed: true };
+				}
+			}
 		}
 
 		console.log(`[router] Target not found: ${message.to}`);
