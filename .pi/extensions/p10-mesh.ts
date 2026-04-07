@@ -293,7 +293,7 @@ function connectMeshWs(ctx: any) {
 				to: 'master',
 				type: 'register',
 				payload: {
-					name: `Pi CLI (${process.pid})`,
+					name: `Pi CLI (${PI_SESSION_ID.split('-').slice(2).join('-')})`,
 					type: 'pi-cli',
 					capabilities: ['chat.interactive', 'query.answer', 'notify.user'],
 				},
