@@ -28,6 +28,52 @@ let lastAction: string = 'started';
 let taskCount = 0;
 let errorCount = 0;
 let idleSince: string = new Date().toISOString();
+let processing = false;
+
+// --- Task Queue ---
+const MAX_QUEUE_SIZE = 10;
+interface QueuedTask {
+	handler: () => Promise<any>;
+	resolve: (result: any) => void;
+}
+const taskQueue: QueuedTask[] = [];
+
+async function enqueueTask(handler: () => Promise<any>): Promise<any> {
+	if (!processing) {
+		processing = true;
+		try {
+			return await handler();
+		} finally {
+			processing = false;
+			drainQueue();
+		}
+	}
+
+	if (taskQueue.length >= MAX_QUEUE_SIZE) {
+		console.log(`[pi-daemon] Queue full (${MAX_QUEUE_SIZE}), rejecting task`);
+		return { error: `Task queue full (${MAX_QUEUE_SIZE} pending)`, queued: false };
+	}
+
+	console.log(`[pi-daemon] Queued task (${taskQueue.length + 1} in queue)`);
+	return new Promise((resolve) => {
+		taskQueue.push({ handler, resolve });
+	});
+}
+
+async function drainQueue() {
+	while (taskQueue.length > 0 && !processing) {
+		const next = taskQueue.shift()!;
+		processing = true;
+		try {
+			const result = await next.handler();
+			next.resolve(result);
+		} catch (err: any) {
+			next.resolve({ error: err.message });
+		} finally {
+			processing = false;
+		}
+	}
+}
 
 // --- Activity Events ---
 
@@ -75,6 +121,7 @@ function generateTldr(): string {
 	}
 
 	parts.push(`tasks: ${taskCount}`);
+	if (taskQueue.length > 0) parts.push(`queued: ${taskQueue.length}`);
 	parts.push(`sessions: ${sessionPool.size}`);
 
 	if (errorCount > 0) {
@@ -239,18 +286,20 @@ client.onMessage(async (msg) => {
 		}
 
 		case 'task': {
-			const result = await handleTask(msg.payload);
+			const payload = msg.payload;
+			const result = await enqueueTask(() => handleTask(payload));
 			client.send(msg.from, 'task_result', {
-				taskId: msg.payload?.taskId,
+				taskId: payload?.taskId,
 				result
 			});
 			break;
 		}
 
 		case 'task_with_role': {
-			const result = await handleTaskWithRole(msg.payload);
+			const payload = msg.payload;
+			const result = await enqueueTask(() => handleTaskWithRole(payload));
 			client.send(msg.from, 'task_result', {
-				taskId: msg.payload?.taskId,
+				taskId: payload?.taskId,
 				result
 			});
 			break;

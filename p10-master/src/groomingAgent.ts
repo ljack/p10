@@ -49,6 +49,8 @@ export class GroomingAgent {
 	private timer: ReturnType<typeof setInterval> | null = null;
 	private pendingConsolidations = new Map<string, string[]>(); // queryId → archiveIds
 	private pendingReflections = new Map<string, string[]>(); // queryId → memoryIds
+	private consolidationAttempts = new Map<string, number>(); // archiveGroupKey → attempt count
+	private static MAX_CONSOLIDATION_ATTEMPTS = 3;
 
 	constructor(
 		board: TaskBoard,
@@ -85,11 +87,27 @@ export class GroomingAgent {
 	/** Handle AI responses for consolidation/reflection */
 	handleTaskResult(taskId: string, result: any): boolean {
 		const text = result?.result || '';
+		const isError = !!result?.error;
 
 		// Consolidation response
 		const archiveIds = this.pendingConsolidations.get(taskId);
 		if (archiveIds) {
 			this.pendingConsolidations.delete(taskId);
+			const groupKey = archiveIds.sort().join(',');
+
+			if (isError) {
+				// Track failed attempts
+				const attempts = (this.consolidationAttempts.get(groupKey) || 0) + 1;
+				this.consolidationAttempts.set(groupKey, attempts);
+				if (attempts >= GroomingAgent.MAX_CONSOLIDATION_ATTEMPTS) {
+					// Give up — consolidate with placeholder to stop retrying
+					console.log(`[grooming] Consolidation failed ${attempts}x, giving up on group of ${archiveIds.length}`);
+					this.memory.consolidate(archiveIds, 'Uncategorized work', `${archiveIds.length} tasks (consolidation failed)`);
+					this.consolidationAttempts.delete(groupKey);
+				}
+				return true;
+			}
+
 			const parsed = this.parseSummary(text);
 			if (parsed) {
 				this.memory.consolidate(
@@ -98,10 +116,20 @@ export class GroomingAgent {
 					parsed.summary,
 					parsed.themes,
 				);
+				this.consolidationAttempts.delete(groupKey);
 				this.eventBus.emit('board.memory.consolidated', 'grooming', {
 					archiveCount: archiveIds.length,
 					title: parsed.title,
 				});
+			} else {
+				// Couldn't parse — treat as failure
+				const attempts = (this.consolidationAttempts.get(groupKey) || 0) + 1;
+				this.consolidationAttempts.set(groupKey, attempts);
+				if (attempts >= GroomingAgent.MAX_CONSOLIDATION_ATTEMPTS) {
+					console.log(`[grooming] Consolidation unparseable ${attempts}x, giving up`);
+					this.memory.consolidate(archiveIds, 'Uncategorized work', `${archiveIds.length} tasks (consolidation failed)`);
+					this.consolidationAttempts.delete(groupKey);
+				}
 			}
 			return true;
 		}
@@ -188,9 +216,32 @@ export class GroomingAgent {
 		return archived;
 	}
 
+	/** Check if an archive is garbage (error message, not real work) */
+	private isGarbageArchive(node: MemoryNode): boolean {
+		const s = node.summary.toLowerCase();
+		return s.includes('agent is already processing') ||
+			s.includes('task queue full') ||
+			s.includes('pi agent not available') ||
+			s.includes('no pi daemon') ||
+			(s.includes('error') && node.summary.length < 80);
+	}
+
 	/** Phase 2: Group orphan archives → AI-summarized memory nodes */
 	private phaseConsolidate(): number {
-		const orphans = this.memory.getOrphanArchives();
+		const allOrphans = this.memory.getOrphanArchives();
+
+		// Filter out garbage archives — consolidate them silently as junk
+		const garbage = allOrphans.filter(n => this.isGarbageArchive(n));
+		if (garbage.length > 0) {
+			this.memory.consolidate(
+				garbage.map(n => n.id),
+				'Failed/rejected tasks',
+				`${garbage.length} tasks that failed due to system errors (not real work)`,
+			);
+			console.log(`[grooming] Filtered ${garbage.length} garbage archives`);
+		}
+
+		const orphans = allOrphans.filter(n => !this.isGarbageArchive(n));
 		if (orphans.length < this.config.consolidateMinGroup) return 0;
 
 		// Group by tags/themes
