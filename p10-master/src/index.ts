@@ -1088,7 +1088,9 @@ wss.on('connection', (ws: WebSocket) => {
 
 // Start
 registry.start();
-integrations.autoStart();
+if (!process.env.P10_NO_INTEGRATIONS) {
+	integrations.autoStart();
+}
 
 httpServer.listen(PORT, () => {
 	console.log(`\n  ┌──────────────────────────────────────┐`);
