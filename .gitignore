@@ -1,3 +1,12 @@
 node_modules
 test-results
-playwright-report\n.svelte-kit\nbuild\n.vite\n*.log
+playwright-report
+.svelte-kit
+build
+.vite
+*.log
+
+# Secrets
+p10-telegram/config.json
+p10-master/data/
+/tmp/p10-api-key.txt
