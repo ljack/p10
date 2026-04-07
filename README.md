@@ -63,11 +63,345 @@ The **Pi Daemon** (powered by Claude via [pi SDK](https://github.com/nicholasgas
 | `web_agent` | Build React components, pages, styling |
 | `review_agent` | Review code, find bugs, suggest fixes |
 
-### 3. Results appear live
+### 3. Pipelines - Multi-Agent Orchestration
+
+P10's **pipeline system** decomposes complex instructions into role-based task sequences that execute automatically:
+
+```bash
+# Launch a pipeline
+curl -X POST http://localhost:7777/pipeline \
+  -H "Content-Type: application/json" \
+  -d '{"instruction": "Build authentication with login and registration"}'
+
+# Or via pi CLI
+/pipeline "Build auth"
+```
+
+**Pipeline Flow:**
+1. **Decomposition**: LLM breaks instruction into role-specific tasks
+2. **Dependency resolution**: Smart ordering (planning → api → web → review)
+3. **Sequential execution**: Each task gets prior context from completed tasks
+4. **Error recovery**: Failed tasks trigger review_agent for fixes
+5. **Board integration**: Pipeline creates a board task with live subtask progress
+
+**Example Pipeline:**
+```
+Instruction: "Build auth"
+├── [api_agent] Create auth endpoints: POST /api/auth/register, /api/auth/login
+├── [api_agent] Add JWT middleware for protected routes  
+├── [web_agent] Create login form with email/password
+├── [web_agent] Create registration form
+├── [web_agent] Add protected route wrapper
+└── [review_agent] Verify the complete auth flow
+```
+
+**Pipeline Commands:**
+- `mesh_pipeline "instruction"` - Launch new pipeline
+- `mesh_pipeline_status [pipelineId]` - Check progress
+- `mesh_pipeline_cancel <pipelineId>` - Cancel running pipeline  
+- `mesh_pipeline_rerun <pipelineId>` - Retry failed pipeline from first incomplete task
+
+**REST API:**
+```bash
+# Launch pipeline
+POST /pipeline
+{
+  "instruction": "Build auth with 'secure' tokens & validation",
+  "channel": "rest-api"
+}
+
+# Check status  
+GET /pipeline/:id
+GET /pipelines  # all active/recent
+
+# Control
+POST /pipeline/:id/cancel
+POST /pipeline/:id/rerun
+```
+
+**Pipeline Lifecycle:**
+```
+planning → executing → completed/failed
+    │
+    └── tasks: pending → active → completed/failed/skipped
+```
+
+### How to Use Pipelines
+
+**1. Via Browser Chat:**
+```
+/pipeline "Build todo app with auth"
+```
+
+**2. Via Pi CLI with P10 Extension:**
+```bash
+pi
+> mesh_pipeline "Build user authentication"
+> mesh_pipeline_status
+> mesh_pipeline_status pipeline-abc123
+```
+
+**3. Via REST API:**
+```bash
+# Simple pipeline
+curl -X POST http://localhost:7777/pipeline \
+  -H "Content-Type: application/json" \
+  -d '{
+    "instruction": "Build REST API for blog posts"
+  }'
+
+# Complex pipeline with context
+curl -X POST http://localhost:7777/pipeline \
+  -H "Content-Type: application/json" \
+  -d '{
+    "instruction": "Add real-time notifications",
+    "context": "Use WebSocket, integrate with existing auth"
+  }'
+```
+
+**4. Via Telegram:**
+```
+/task Build e-commerce cart with checkout
+```
+
+**Pipeline Types:**
+
+| Approach | When Used | Example |
+|----------|-----------|----------|
+| **Direct** | Simple 1-task instructions | "Fix the login bug" |
+| **LLM Decomposed** | Complex multi-step work | "Build auth system" |
+| **Plan-driven** | Uses unchecked PLAN.md items | "Build everything in PLAN.md" |
+
+**Error Recovery:**
+- Failed tasks automatically trigger `review_agent`
+- Review agent analyzes error and attempts fix
+- If recovery succeeds, pipeline continues
+- If recovery fails, pipeline fails (can be re-run)
+
+## Pipeline vs Autonomous Run
+
+**The Key Distinction:**
+
+- **Pipeline**: "Build this one feature" → Multi-agent coordination for a single objective
+- **Autonomous Run**: "Build everything" → Multi-pipeline orchestration for entire project
+
+### Pipeline: Tactical Execution
+```bash
+# Single feature request
+mesh_pipeline "Build user authentication"
+
+# Result: 1 pipeline with 4-6 coordinated tasks
+├── [planning_agent] Design auth flow
+├── [api_agent] Create auth endpoints  
+├── [web_agent] Build login/register forms
+└── [review_agent] Test complete auth system
+```
+
+### Autonomous Run: Strategic Execution  
+```bash
+# Project-wide execution
+mesh_run "Build everything in PLAN.md"
+
+# Result: Multiple pipelines running sequentially
+Run #1: Processing 12 unchecked PLAN.md items...
+├── Pipeline A: "User Management" (5 tasks)
+├── Pipeline B: "Payment Integration" (7 tasks)  
+├── Pipeline C: "Admin Dashboard" (4 tasks)
+└── Pipeline D: "Email Notifications" (3 tasks)
+
+# Runs overnight, generates morning report
+```
+
+### When to Use Each
+
+| Scenario | Use | Why |
+|----------|-----|-----|
+| "Add login functionality" | Pipeline | Single feature, needs coordination |
+| "Fix the broken navbar" | Task | Simple fix, no coordination needed |
+| "Ship v2.0 by morning" | Autonomous Run | Multiple features, strategic scope |
+| "What's our test coverage?" | Query | Just need information |
+
+**Think of it as:**
+- Pipeline = "Build this house" (architect → foundation → framing → roofing)
+- Autonomous Run = "Build this entire neighborhood" (multiple houses, each with their own pipeline)
+
+## All Execution Modes in P10
+
+P10 offers several ways to execute work, each optimized for different scenarios:
+
+### Pipeline vs Task vs Run vs Query
+
+| Mode | When to Use | Example | Execution |
+|------|-------------|---------|----------|
+| **Pipeline** | Multi-step features requiring coordination | "Build auth system" | Decomposed into role-specific tasks, executed sequentially with context handoffs |
+| **Individual Task** | Single-purpose work, quick fixes | "Fix the login bug" | Sent directly to any available Pi Daemon, no decomposition |
+| **Autonomous Run** | Overnight batch processing | "Build everything in PLAN.md" | Reads unchecked PLAN.md items, creates pipelines for each, executes all |
+| **Board Task** | Manual planning, tracking ideas | "Add dark mode" | Human-created, stays on kanban board until picked up |
+| **Query** | Information requests, debugging | "What's the API structure?" | Immediate response from best-suited daemon (browser/pi) |
+
+### Detailed Comparison
+
+**🔄 Pipeline**
+- **Scope**: Multi-agent, role-based (planning → api → web → review)
+- **Intelligence**: LLM decomposes instruction into optimal task sequence
+- **Context**: Each task receives results from prior tasks
+- **Recovery**: Failed tasks trigger review_agent for automatic fixes
+- **Board**: Creates umbrella task with live subtask progress
+- **Use case**: "Build user registration with email verification"
+
+**📋 Individual Task** 
+- **Scope**: Single agent, any role
+- **Intelligence**: Instruction executed as-is
+- **Context**: Optional context parameter, no structured handoffs
+- **Recovery**: Manual retry if failed
+- **Board**: Creates single task entry
+- **Use case**: "Add error handling to the login endpoint"
+
+**🌙 Autonomous Run**
+- **Scope**: Multi-pipeline, project-wide
+- **Intelligence**: Processes PLAN.md, creates pipelines for unchecked items
+- **Context**: Long-term project knowledge, morning reports
+- **Recovery**: Failed pipelines can be individually retried
+- **Board**: Creates run tracker + individual pipeline tasks
+- **Use case**: "Ship the entire feature roadmap overnight"
+
+**📌 Board Task**
+- **Scope**: Planning and tracking
+- **Intelligence**: Human-created, AI-analyzed after 10s
+- **Context**: Task analyst enriches with questions, dependencies, tags
+- **Recovery**: Manual task management
+- **Board**: Core kanban workflow (planned → in-progress → done)
+- **Use case**: "Research GraphQL vs REST for our API"
+
+**❓ Query**
+- **Scope**: Information gathering
+- **Intelligence**: Smart routing (browser for state, pi for code analysis)
+- **Context**: 15s timeout, immediate response
+- **Recovery**: N/A (stateless)
+- **Board**: No task created
+- **Use case**: "How many API routes do we have?"
+
+### When to Use What?
+
+```
+Need info? ──────────────→ Query
+   │
+   ▼
+Quick fix? ──────────────→ Individual Task  
+   │
+   ▼
+Multi-step feature? ────→ Pipeline
+   │
+   ▼
+Overnight batch work? ──→ Autonomous Run
+   │
+   ▼
+Just planning? ──────────→ Board Task
+```
+
+### API Comparison
+
+```bash
+# Query (immediate)
+curl "http://localhost:7777/query" -d '{"question": "API status?"}'
+
+# Task (single agent)
+curl "http://localhost:7777/task" -d '{"instruction": "Fix login bug"}'
+
+# Pipeline (multi-agent)
+curl "http://localhost:7777/pipeline" -d '{"instruction": "Build auth"}'
+
+# Run (batch mode)
+curl "http://localhost:7777/runs/start" -d '{"instruction": "Build everything"}'
+
+# Board task (manual)
+curl "http://localhost:7777/board/task" -d '{"title": "Research tech"}'
+```
+
+### Detailed Comparison
+
+**🔄 Pipeline**
+- **Scope**: Multi-agent, role-based (planning → api → web → review)
+- **Intelligence**: LLM decomposes instruction into optimal task sequence
+- **Context**: Each task receives results from prior tasks
+- **Recovery**: Failed tasks trigger review_agent for automatic fixes
+- **Board**: Creates umbrella task with live subtask progress
+- **Use case**: "Build user registration with email verification"
+
+**📋 Individual Task** 
+- **Scope**: Single agent, any role
+- **Intelligence**: Instruction executed as-is
+- **Context**: Optional context parameter, no structured handoffs
+- **Recovery**: Manual retry if failed
+- **Board**: Creates single task entry
+- **Use case**: "Add error handling to the login endpoint"
+
+**🌙 Autonomous Run**
+- **Scope**: Multi-pipeline, project-wide
+- **Intelligence**: Processes PLAN.md, creates pipelines for unchecked items
+- **Context**: Long-term project knowledge, morning reports
+- **Recovery**: Failed pipelines can be individually retried
+- **Board**: Creates run tracker + individual pipeline tasks
+- **Use case**: "Ship the entire feature roadmap overnight"
+
+**📌 Board Task**
+- **Scope**: Planning and tracking
+- **Intelligence**: Human-created, AI-analyzed after 10s
+- **Context**: Task analyst enriches with questions, dependencies, tags
+- **Recovery**: Manual task management
+- **Board**: Core kanban workflow (planned → in-progress → done)
+- **Use case**: "Research GraphQL vs REST for our API"
+
+**❓ Query**
+- **Scope**: Information gathering
+- **Intelligence**: Smart routing (browser for state, pi for code analysis)
+- **Context**: 15s timeout, immediate response
+- **Recovery**: N/A (stateless)
+- **Board**: No task created
+- **Use case**: "How many API routes do we have?"
+
+### When to Use What?
+
+```
+Need info? ──────────────→ Query
+   │
+   ▼
+Quick fix? ──────────────→ Individual Task  
+   │
+   ▼
+Multi-step feature? ─────→ Pipeline
+   │
+   ▼
+Overnight batch work? ───→ Autonomous Run
+   │
+   ▼
+Just planning? ──────────→ Board Task
+```
+
+### API Comparison
+
+```bash
+# Query (immediate)
+curl "http://localhost:7777/query" -d '{"question": "API status?"}'
+
+# Task (single agent)
+curl "http://localhost:7777/task" -d '{"instruction": "Fix login bug"}'
+
+# Pipeline (multi-agent)
+curl "http://localhost:7777/pipeline" -d '{"instruction": "Build auth"}'
+
+# Run (batch mode)
+curl "http://localhost:7777/runs/start" -d '{"instruction": "Build everything"}'
+
+# Board task (manual)
+curl "http://localhost:7777/board/task" -d '{"title": "Research tech"}'
+```
+
+### 4. Results appear live
 
 The **Browser Daemon** monitors the WebContainer — a full Node.js environment running in-browser. Changes trigger hot-reload. Errors are auto-detected and sent back to agents for fixing.
 
-### 4. Knowledge compounds
+### 5. Knowledge compounds
 
 Completed tasks flow through **progressive memory compression**:
 
