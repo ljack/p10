@@ -1,0 +1,48 @@
+{
+  "test_date": "2026-04-15",
+  "iterations": 1,
+
+  "agents_md_variants": {
+    "model": "claude-sonnet-4-5 (via pi worker subagent)",
+    "results": [
+      {"run_id":"vet-A","variant":"A","app":"vet","install":10,"run":15,"api":10,"frontend":10,"code_quality":11,"db":10,"adherence":15,"total":81},
+      {"run_id":"vet-B","variant":"B","app":"vet","install":10,"run":15,"api":10,"frontend":10,"code_quality":9,"db":10,"adherence":14,"total":78},
+      {"run_id":"vet-C","variant":"C","app":"vet","install":10,"run":15,"api":18,"frontend":10,"code_quality":9,"db":8,"adherence":13,"total":83},
+      {"run_id":"vet-D","variant":"D","app":"vet","install":10,"run":15,"api":12,"frontend":10,"code_quality":12,"db":10,"adherence":15,"total":84},
+      {"run_id":"vet-E","variant":"E","app":"vet","install":10,"run":15,"api":0,"frontend":0,"code_quality":15,"db":8,"adherence":12,"total":60},
+      {"run_id":"elec-A","variant":"A","app":"elec","install":10,"run":15,"api":16,"frontend":10,"code_quality":11,"db":10,"adherence":15,"total":87},
+      {"run_id":"elec-B","variant":"B","app":"elec","install":10,"run":15,"api":18,"frontend":10,"code_quality":9,"db":8,"adherence":13,"total":83},
+      {"run_id":"elec-C","variant":"C","app":"elec","install":10,"run":15,"api":16,"frontend":10,"code_quality":11,"db":8,"adherence":13,"total":83},
+      {"run_id":"elec-D","variant":"D","app":"elec","install":6,"run":8,"api":6,"frontend":0,"code_quality":10,"db":10,"adherence":5,"total":45},
+      {"run_id":"elec-E","variant":"E","app":"elec","install":10,"run":7,"api":0,"frontend":10,"code_quality":15,"db":10,"adherence":10,"total":62}
+    ],
+    "averages": {
+      "A_control": 84.0,
+      "B_speed": 80.5,
+      "C_quality": 83.0,
+      "D_tdd": 64.5,
+      "E_adversarial": 61.0
+    }
+  },
+
+  "harness_comparison": {
+    "variant": "A (no AGENTS.md)",
+    "results": [
+      {"run_id":"claude-code-vet-A","harness":"claude-code","app":"vet","install":10,"run":15,"api":12,"frontend":0,"code_quality":16,"db":8,"adherence":15,"total":76},
+      {"run_id":"claude-code-elec-A","harness":"claude-code","app":"elec","install":10,"run":15,"api":18,"frontend":10,"code_quality":12,"db":8,"adherence":15,"total":88},
+      {"run_id":"pi-vet-A","harness":"pi","app":"vet","install":10,"run":15,"api":12,"frontend":10,"code_quality":17,"db":8,"adherence":15,"total":87},
+      {"run_id":"pi-elec-A","harness":"pi","app":"elec","install":10,"run":15,"api":18,"frontend":10,"code_quality":12,"db":8,"adherence":15,"total":88},
+      {"run_id":"codex-vet-A","harness":"codex","app":"vet","install":10,"run":15,"api":12,"frontend":10,"code_quality":15,"db":10,"adherence":15,"total":87},
+      {"run_id":"codex-elec-A","harness":"codex","app":"elec","install":10,"run":15,"api":13,"frontend":10,"code_quality":18,"db":8,"adherence":15,"total":89}
+    ],
+    "averages": {
+      "claude_code": 82.0,
+      "pi": 87.5,
+      "codex": 88.0
+    },
+    "blocked": {
+      "gemini": "Needs GEMINI_API_KEY environment variable",
+      "agy": "GUI-only (Windsurf IDE), not headless-capable"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+# Per-run build/runtime artifacts — keep source only
+runs/**/venv/
+runs/**/.venv/
+runs/**/.score-venv/
+runs/**/__pycache__/
+runs/**/*.db
+runs/**/*.db-journal
+runs/**/*.log
+runs/**/node_modules/
+runs/**/dist/
+runs/**/build/
+runs/**/.svelte-kit/
+runs/**/package-lock.json
+runs/**/.DS_Store
+.DS_Store
