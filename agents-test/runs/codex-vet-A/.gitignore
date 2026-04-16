@@ -1,0 +1,8 @@
+.DS_Store
+.venv/
+__pycache__/
+*.pyc
+backend/vet_clinic.db
+frontend/.svelte-kit/
+frontend/build/
+frontend/node_modules/

@@ -1,0 +1,1 @@
+"""Home Electricity Consumption App."""

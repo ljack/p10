@@ -1,0 +1,14 @@
+Metadata-Version: 2.4
+Name: vet-appointment-backend
+Version: 0.1.0
+Summary: FastAPI backend for a vet appointment application
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: aiosqlite>=0.20.0
+Requires-Dist: fastapi>=0.115.0
+Requires-Dist: sqlalchemy>=2.0.36
+Requires-Dist: uvicorn[standard]>=0.32.0
+
+# Vet Appointment Backend
+
+FastAPI service for the vet appointment application.

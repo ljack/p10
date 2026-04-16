@@ -1,0 +1,11 @@
+{
+  "run_id": "pi-elec-A",
+  "variant": "A",
+  "app": "elec",
+  "timestamp": "2026-04-15T05:15:53Z",
+  "scores": {"installability":{"score":10,"max":10,"details":"backend deps file: YES. frontend package.json: YES. pip install: OK. npm install: OK. "},"runnability":{"score":15,"max":15,"details":"backend starts: YES (main.py). responds /docs: HTTP 200. frontend build: OK. dev script exists: YES. "},"api_completeness":{"score":18,"max":20,"details":"15/16 endpoints working. POST /api/budget=409(expected 201).  "},"frontend_completeness":{"score":10,"max":10,"details":"6 svelte files. forms: 4 files. API calls: 6 files. navigation: 2 files. TypeScript: 2 files. "},"code_quality":{"score":12,"max":20,"details":"type hints: 4% (1/23). error handling: 36 occurrences. no hardcoded secrets. good file separation (8 files). ruff: 45 issues. "},"database_quality":{"score":8,"max":10,"details":"schema defined in 2 files. foreign keys: 3. auto-init: YES. no explicit indexes. seed data: YES. "},"agents_adherence":{"score":0,"max":15,"details":"To be scored by AI evaluator "}},
+  "auto_total": 73,
+  "auto_max": 85,
+  "adherence_pending": true,
+  "notes": ""
+}

@@ -1,0 +1,11 @@
+{
+  "run_id": "vet-E",
+  "variant": "E",
+  "app": "vet",
+  "timestamp": "2026-04-14T23:09:28Z",
+  "scores": {"installability":{"score":10,"max":10,"details":"backend deps file: YES. frontend package.json: YES. pip install: OK. npm install: OK. "},"runnability":{"score":15,"max":15,"details":"backend starts: YES (src/main.py). responds /docs: HTTP 200. frontend build: OK. dev script exists: YES. "},"api_completeness":{"score":0,"max":20,"details":"0/13 endpoints working. POST /api/pets=404(expected 201). GET /api/pets=404(expected 200). GET /api/pets/1=404(expected 200). PUT /api/pets/1=404(expected 200). GET /api/treatments=404(expected 200). POST /api/treatments=404(expected 201). PUT /api/treatments/1=404(expected 200). DELETE /api/treatments/1=404(expected 200). POST /api/appointments=404(expected 201). GET /api/appointments=404(expected 200). GET /api/appointments/1=404(expected 200). PUT /api/appointments/1=404(expected 200). GET /api/appointments/available-slots?date=2026-04-15&treatment_id=1=404(expected 200).  "},"frontend_completeness":{"score":0,"max":10,"details":"No svelte files found. No TypeScript. "},"code_quality":{"score":15,"max":20,"details":"type hints: 77% (124/159). error handling: 24 occurrences. no hardcoded secrets. good file separation (38 files). ruff: 1805 issues. "},"database_quality":{"score":8,"max":10,"details":"schema defined in 11 files. foreign keys: 3. auto-init: YES. no explicit indexes. seed data: YES. "},"agents_adherence":{"score":0,"max":15,"details":"To be scored by AI evaluator "}},
+  "auto_total": 48,
+  "auto_max": 85,
+  "adherence_pending": true,
+  "notes": ""
+}

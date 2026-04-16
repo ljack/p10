@@ -1,0 +1,11 @@
+{
+  "run_id": "elec-D",
+  "variant": "D",
+  "app": "elec",
+  "timestamp": "2026-04-14T23:12:02Z",
+  "scores": {"installability":{"score":6,"max":10,"details":"backend deps file: YES. frontend package.json: NO. pip install: OK.  "},"runnability":{"score":8,"max":15,"details":"backend starts: YES (app/main.py). responds /docs: HTTP 200. no frontend package.json. "},"api_completeness":{"score":6,"max":20,"details":"5/16 endpoints working. POST /api/consumption=404(expected 201). GET /api/consumption=404(expected 200). GET /api/consumption/stats?period=month=404(expected 200). POST /api/schedules=404(expected 201). GET /api/schedules=404(expected 200). PUT /api/schedules/1=404(expected 200). DELETE /api/schedules/1=404(expected 200). GET /api/schedules/today=404(expected 200). POST /api/budget=404(expected 201). GET /api/budget=404(expected 200). GET /api/budget/2026-04/status=404(expected 200).  "},"frontend_completeness":{"score":0,"max":10,"details":"No svelte files found. No TypeScript. "},"code_quality":{"score":10,"max":20,"details":"type hints: 0% (0/33). error handling: 4 occurrences. no hardcoded secrets. good file separation (9 files). ruff: 56 issues. "},"database_quality":{"score":10,"max":10,"details":"schema defined in 4 files. foreign keys: 3. auto-init: YES. indexes: 4. seed data: YES. "},"agents_adherence":{"score":0,"max":15,"details":"To be scored by AI evaluator "}},
+  "auto_total": 40,
+  "auto_max": 85,
+  "adherence_pending": true,
+  "notes": ""
+}

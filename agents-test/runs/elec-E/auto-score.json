@@ -1,0 +1,11 @@
+{
+  "run_id": "elec-E",
+  "variant": "E",
+  "app": "elec",
+  "timestamp": "2026-04-14T23:12:28Z",
+  "scores": {"installability":{"score":10,"max":10,"details":"backend deps file: YES. frontend package.json: YES. pip install: OK. npm install: OK. "},"runnability":{"score":7,"max":15,"details":"backend CRASHES on start. frontend build: OK. dev script exists: YES. "},"api_completeness":{"score":0,"max":20,"details":" "},"frontend_completeness":{"score":10,"max":10,"details":"12 svelte files. forms: 3 files. API calls: 3 files. navigation: 2 files. TypeScript: 3 files. "},"code_quality":{"score":15,"max":20,"details":"type hints: 88% (104/118). error handling: 16 occurrences. no hardcoded secrets. good file separation (66 files). ruff: 171 issues. "},"database_quality":{"score":10,"max":10,"details":"schema defined in 4 files. foreign keys: 2. auto-init: YES. indexes: 4. seed data: YES. "},"agents_adherence":{"score":0,"max":15,"details":"To be scored by AI evaluator "}},
+  "auto_total": 52,
+  "auto_max": 85,
+  "adherence_pending": true,
+  "notes": ""
+}
