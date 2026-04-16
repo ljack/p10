@@ -248,6 +248,32 @@ let meshReconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let meshCtx: any = null; // store extension context for message handlers
 let meshConnected = false;
 
+// --- Join/Leave Buffer ---
+// Accumulates rapid join/leave events and shows them as one notification
+const joinBuffer: string[] = [];
+let joinBufferTimer: ReturnType<typeof setTimeout> | null = null;
+const JOIN_BUFFER_DELAY = 1500; // ms to wait for more events before displaying
+
+function bufferJoinEvent(line: string) {
+	const ctx = meshCtx;
+	if (!ctx) return;
+
+	joinBuffer.push(line);
+
+	// Reset the timer — wait for more events
+	if (joinBufferTimer) clearTimeout(joinBufferTimer);
+	joinBufferTimer = setTimeout(() => {
+		joinBufferTimer = null;
+		if (joinBuffer.length === 0) return;
+
+		const lines = [...joinBuffer];
+		joinBuffer.length = 0;
+
+		const header = lines.length === 1 ? 'Mesh' : `Mesh (${lines.length})`;
+		ctx.ui.notify(`${header} ${lines.join(' ')}`, 'info');
+	}, JOIN_BUFFER_DELAY);
+}
+
 // --- Status line ---
 
 function updateStatusLine() {
@@ -431,12 +457,12 @@ function handleMeshWsMessage(msg: any) {
 
 		case 'register': {
 			const d = msg.payload?.daemon;
-			if (d) ctx.ui.notify(`🟢 Daemon joined: ${d.name} (${d.type})`, "info");
+			if (d) bufferJoinEvent(`🟢 ${d.name} joined`);
 			break;
 		}
 
 		case 'unregister': {
-			ctx.ui.notify(`🔴 Daemon left: ${msg.payload?.id}`, "info");
+			bufferJoinEvent(`🔴 ${msg.payload?.name || msg.payload?.id} left`);
 			break;
 		}
 
@@ -448,7 +474,13 @@ function handleMeshWsMessage(msg: any) {
 		case 'event_notification': {
 			const event = msg.payload;
 			if (event?.type && matchesVerbosity(event.type)) {
-				ctx.ui.notify(formatActivityEvent(event), "info");
+				// Skip join/leave — already handled by register/unregister messages
+				const t = event.type;
+				if (t === 'mesh.daemon.joined' || t === 'mesh.daemon.left' || t === 'mesh.pi.joined' || t === 'mesh.pi.quit') {
+					break;
+				} else {
+					ctx.ui.notify(formatActivityEvent(event), "info");
+				}
 			}
 			break;
 		}
