@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://ljack.github.io/p10/opus-compare/sitemap.xml

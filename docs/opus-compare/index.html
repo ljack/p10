@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Opus 4.7 vs Opus 4.6 vs Sonnet 4.6 vs GPT-5.3-codex vs GPT-5.4 — AI Coding Shootout | P10</title>
+<meta name="description" content="Head-to-head benchmark of five frontier AI coding models — Claude Opus 4.6, Opus 4.7, Sonnet 4.6, GPT-5.3-codex, GPT-5.4 — building the same Todo app. Measured wall-clock, cost, tokens, E2E tests, axe a11y, and a Nielsen/Gestalt design rubric. Full methodology, screenshots, and reproducible harness.">
+<meta name="keywords" content="claude opus 4.7 benchmark, opus 4.6 vs 4.7, gpt-5.3-codex vs claude, gpt-5.4 coding review, sonnet 4.6 review, ai coding model comparison 2026, llm todo app benchmark, axe-core llm ui, nielsen heuristics llm, anthropic vs openai coding">
+<meta name="author" content="Jarkko Lietolahti">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<link rel="canonical" href="https://ljack.github.io/p10/opus-compare/">
+
+<!-- Open Graph -->
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://ljack.github.io/p10/opus-compare/">
+<meta property="og:title" content="Opus 4.7 vs Opus 4.6 vs Sonnet 4.6 vs GPT-5.3-codex vs GPT-5.4 — Same App, Five Models">
+<meta property="og:description" content="Five-way AI coding shootout building the same Todo app. Wall-clock, cost, E2E tests, axe, and design rubric — all measured, all reproducible.">
+<meta property="og:image" content="https://ljack.github.io/p10/opus-compare/img/og-card.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:site_name" content="P10 — AI Daemon Mesh">
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Opus 4.7 vs Opus 4.6 vs Sonnet 4.6 vs GPT-5.3-codex vs GPT-5.4">
+<meta name="twitter:description" content="Five-way AI coding shootout building the same Todo app. All numbers measured, all code reproducible.">
+<meta name="twitter:image" content="https://ljack.github.io/p10/opus-compare/img/og-card.png">
+
+<link rel="stylesheet" href="styles.css">
+
+<!-- JSON-LD -->
+<script type="application/ld+json">
+{
+	"@context": "https://schema.org",
+	"@type": "TechArticle",
+	"headline": "Opus 4.7 vs Opus 4.6 vs Sonnet 4.6 vs GPT-5.3-codex vs GPT-5.4 — AI Coding Shootout",
+	"description": "Head-to-head benchmark of five frontier AI coding models building the same Todo app.",
+	"author": { "@type": "Person", "name": "Jarkko Lietolahti" },
+	"datePublished": "2026-04-16",
+	"dateModified": "2026-04-16",
+	"image": "https://ljack.github.io/p10/opus-compare/img/og-card.png",
+	"url": "https://ljack.github.io/p10/opus-compare/",
+	"keywords": "opus 4.7, opus 4.6, sonnet 4.6, gpt-5.3-codex, gpt-5.4, LLM coding benchmark, anthropic, openai",
+	"publisher": {
+		"@type": "Organization",
+		"name": "P10",
+		"url": "https://github.com/ljack/p10"
+	},
+	"about": [
+		{ "@type": "Thing", "name": "Claude Opus 4.6", "sameAs": "https://www.anthropic.com/claude" },
+		{ "@type": "Thing", "name": "Claude Opus 4.7", "sameAs": "https://www.anthropic.com/claude" },
+		{ "@type": "Thing", "name": "Claude Sonnet 4.6", "sameAs": "https://www.anthropic.com/claude" },
+		{ "@type": "Thing", "name": "GPT-5.3-codex", "sameAs": "https://openai.com/" },
+		{ "@type": "Thing", "name": "GPT-5.4", "sameAs": "https://openai.com/" }
+	]
+}
+</script>
+
+</head>
+<body>
+
+<header class="hero">
+	<div class="inner">
+		<p class="tag">Benchmark · 2026-04-16</p>
+		<h1>Five frontier AI models build the same todo app. Here's what actually differs.</h1>
+		<p class="lede">Same prompt, same tools, same sandbox — <strong>Opus 4.6</strong>, <strong>Opus 4.7</strong>, <strong>Sonnet 4.6</strong>, <strong>GPT-5.3-codex</strong>, and <strong>GPT-5.4</strong> each produced a Todo REST API + a vanilla-JS UI, then passed through black-box E2E tests, objective axe-core a11y checks, a neutral-judge design rubric, and a self-fix pass. Every number here is measured; every artifact is in the repo.</p>
+		<div class="meta">Author: Jarkko Lietolahti · <a href="https://github.com/ljack/p10/tree/master/agents-test/opus-compare">Source &amp; reports on GitHub</a></div>
+		<nav class="nav">
+			<a href="#tldr">TL;DR</a>
+			<a href="#builds">The builds</a>
+			<a href="#methodology">Methodology</a>
+			<a href="#wall-clock">Wall-clock &amp; cost</a>
+			<a href="#e2e">Functional E2E</a>
+			<a href="#a11y">Accessibility</a>
+			<a href="#design">Design rubric</a>
+			<a href="#fix">Fix-time</a>
+			<a href="#observations">Observations</a>
+			<a href="#reproduce">Reproduce</a>
+		</nav>
+	</div>
+</header>
+
+<main>
+
+<!-- TL;DR -->
+<section id="tldr">
+<h2>TL;DR</h2>
+<p>All five models shipped a Todo app that passes 12/12 E2E tests. The interesting differences are where you'd expect them: <strong>latency, cost, default accessibility, and design polish.</strong></p>
+
+<div class="kpi-row">
+	<div class="kpi"><div class="big-number">opus-4-7<span class="label">fastest wall-clock</span></div><p>150 s total for API + UI build.</p></div>
+	<div class="kpi"><div class="big-number">gpt-5-3-codex<span class="label">best a11y out of box</span></div><p>Only model to ship with <strong>0 axe violations</strong>.</p></div>
+	<div class="kpi"><div class="big-number">gpt-5-4<span class="label">highest design score</span></div><p>3.76 / 5 average across 21 rubric dimensions.</p></div>
+	<div class="kpi"><div class="big-number">sonnet-4-6<span class="label">cheapest fix pass</span></div><p>$0.037 to fix its own axe violation.</p></div>
+	<div class="kpi"><div class="big-number">opus-4-6<span class="label">most terse UI</span></div><p>39-line HTML; 6.6 KB total HTML + CSS.</p></div>
+</div>
+
+<p><em>Caveat up front: n=1 per model and the design judge is <code>gpt-5.4</code>, which happens to also be a contestant. Take ratings as directional, not canonical. Full caveats at the bottom.</em></p>
+</section>
+
+<!-- Builds grid with screenshots -->
+<section id="builds">
+<h2>The five builds, side by side</h2>
+<p>Each UI is a vanilla HTML + CSS + JS app produced by a different model from <a href="https://github.com/ljack/p10/blob/master/agents-test/opus-compare/prompt/todo-ui-v2.prompt.md">the same prompt</a>. The prompt includes a testability contract (<code>data-testid</code>, <code>aria-label</code>, fixed text strings) so one Playwright suite exercises all five.</p>
+
+<div class="grid">
+	<article class="card" id="opus-4-6">
+		<header><h3>Claude Opus 4.6</h3><span class="tag">anthropic/claude-opus-4-6</span></header>
+		<img class="shot" src="img/opus-4-6-populated.png" alt="Opus 4.6 Todo UI, populated with three items" loading="lazy">
+		<dl>
+			<dt>Build</dt><dd>190 s · $0.518</dd>
+			<dt>E2E</dt><dd>12 / 12 ✅</dd>
+			<dt>Axe (first pass)</dt><dd><span class="badge bad">1 serious</span> contrast</dd>
+			<dt>Design rubric</dt><dd>3.43 / 5</dd>
+			<dt>Fix pass</dt><dd>17 s · $0.094</dd>
+		</dl>
+	</article>
+
+	<article class="card" id="opus-4-7">
+		<header><h3>Claude Opus 4.7</h3><span class="tag">anthropic/claude-opus-4-7</span></header>
+		<img class="shot" src="img/opus-4-7-populated.png" alt="Opus 4.7 Todo UI, populated with three items" loading="lazy">
+		<dl>
+			<dt>Build</dt><dd>150 s · $0.556</dd>
+			<dt>E2E</dt><dd>12 / 12 ✅</dd>
+			<dt>Axe (first pass)</dt><dd><span class="badge warn">1 moderate</span> landmark</dd>
+			<dt>Design rubric</dt><dd>3.67 / 5</dd>
+			<dt>Fix pass</dt><dd>19 s · $0.063</dd>
+		</dl>
+	</article>
+
+	<article class="card" id="sonnet-4-6">
+		<header><h3>Claude Sonnet 4.6</h3><span class="tag">anthropic/claude-sonnet-4-6</span></header>
+		<img class="shot" src="img/sonnet-4-6-populated.png" alt="Sonnet 4.6 Todo UI, populated with three items" loading="lazy">
+		<dl>
+			<dt>Build</dt><dd>333 s · $0.595</dd>
+			<dt>E2E</dt><dd>12 / 12 ✅</dd>
+			<dt>Axe (first pass)</dt><dd><span class="badge bad">1 serious</span> contrast</dd>
+			<dt>Design rubric</dt><dd>3.10 / 5</dd>
+			<dt>Fix pass</dt><dd>20 s · $0.037</dd>
+		</dl>
+	</article>
+
+	<article class="card" id="gpt-5-3-codex">
+		<header><h3>GPT-5.3-codex</h3><span class="tag">openai/gpt-5.3-codex</span></header>
+		<img class="shot" src="img/gpt-5-3-codex-populated.png" alt="GPT-5.3-codex Todo UI, populated with three items" loading="lazy">
+		<dl>
+			<dt>Build</dt><dd>433 s · $0.602</dd>
+			<dt>E2E</dt><dd>12 / 12 ✅</dd>
+			<dt>Axe (first pass)</dt><dd><span class="badge ok">0 violations</span></dd>
+			<dt>Design rubric</dt><dd>3.71 / 5</dd>
+			<dt>Fix pass</dt><dd>— (nothing to fix)</dd>
+		</dl>
+	</article>
+
+	<article class="card" id="gpt-5-4">
+		<header><h3>GPT-5.4</h3><span class="tag">openai/gpt-5.4</span></header>
+		<img class="shot" src="img/gpt-5-4-populated.png" alt="GPT-5.4 Todo UI, populated with three items" loading="lazy">
+		<dl>
+			<dt>Build</dt><dd>533 s · $0.599</dd>
+			<dt>E2E</dt><dd>12 / 12 ✅</dd>
+			<dt>Axe (first pass)</dt><dd><span class="badge bad">2</span> contrast + landmark</dd>
+			<dt>Design rubric</dt><dd>3.76 / 5</dd>
+			<dt>Fix pass</dt><dd>50 s · $0.060</dd>
+		</dl>
+	</article>
+</div>
+</section>
+
+<!-- Methodology -->
+<section id="methodology">
+<h2>Methodology</h2>
+<p>A reproducible harness, one prompt per artifact, one model variable, everything else fixed:</p>
+
+<ol>
+	<li><strong>API build</strong> — Express + Jest/supertest Todo service. <a href="https://github.com/ljack/p10/blob/master/agents-test/opus-compare/prompt/todo-api.prompt.md">Prompt</a>.</li>
+	<li><strong>Shared CORS patch</strong> — identical 6-line middleware added to every API so browser UIs can call it (this plugs a spec hole found by E2E — see §<a href="#spec-hole">below</a>).</li>
+	<li><strong>UI build</strong> — vanilla HTML/CSS/JS Todo UI with a required <code>data-testid</code> contract. <a href="https://github.com/ljack/p10/blob/master/agents-test/opus-compare/prompt/todo-ui-v2.prompt.md">Prompt</a>.</li>
+	<li><strong>Functional E2E</strong> — 12 Playwright tests per build (60 total) exercising every behaviour in the spec.</li>
+	<li><strong>Objective design analysis</strong> — axe-core + CSS/HTML metrics on the live page. Fully deterministic.</li>
+	<li><strong>LLM design rubric</strong> — <code>gpt-5.4</code> judges each build against 21 dimensions (Nielsen 10 + Gestalt 3 + hierarchy + typography + 3 states + 3 visual a11y). <a href="https://github.com/ljack/p10/blob/master/agents-test/opus-compare/design/rubric.md">Rubric</a>.</li>
+	<li><strong>Fix pass</strong> — each model receives its own <code>axe-report.json</code> and is asked to fix the violation minimally without breaking the E2E contract. <a href="https://github.com/ljack/p10/blob/master/agents-test/opus-compare/prompt/fix-axe.prompt.md">Fix prompt</a>.</li>
+	<li><strong>Re-verify</strong> — rerun E2E + axe. All builds stayed green; all reached 0 axe violations.</li>
+</ol>
+
+<p>Each model ran via <code>pi</code> in JSON mode with <code>--no-context-files --no-extensions --no-skills --no-prompt-templates</code> and a fresh working directory. No AGENTS.md nudging anyone.</p>
+
+<p id="spec-hole"><strong>A note on the CORS hole.</strong> E2E immediately exposed that none of the API builds set CORS headers — the spec didn't demand it. All five models produced the same bug. Rather than pretend each one built a browser-ready API, I applied one shared patch and recorded two verdicts (pre-fix 0/60 and post-fix 60/60). <em>The same E2E harness that catches models also catches your own spec gaps.</em></p>
+</section>
+
+<!-- Wall-clock -->
+<section id="wall-clock">
+<h2>Wall-clock &amp; cost</h2>
+<p>Full build (API + UI) per model. Sequential, same machine, same network.</p>
+
+<table>
+	<thead>
+	<tr><th>Model</th><th class="num">API (s)</th><th class="num">UI (s)</th><th class="num">Total (s)</th><th class="num">API ($)</th><th class="num">UI ($)</th><th class="num">Total ($)</th></tr>
+	</thead>
+	<tbody>
+	<tr class="winner"><td><strong>opus-4-7</strong></td><td class="num">55</td><td class="num">95</td><td class="num"><strong>150</strong></td><td class="num">0.195</td><td class="num">0.361</td><td class="num">0.556</td></tr>
+	<tr><td>opus-4-6</td><td class="num">81</td><td class="num">109</td><td class="num">190</td><td class="num">0.212</td><td class="num">0.306</td><td class="num"><strong>0.518</strong></td></tr>
+	<tr><td>sonnet-4-6</td><td class="num">109</td><td class="num">224</td><td class="num">333</td><td class="num">0.159</td><td class="num">0.436</td><td class="num">0.595</td></tr>
+	<tr><td>gpt-5-3-codex</td><td class="num">87</td><td class="num">346</td><td class="num">433</td><td class="num"><strong>0.074</strong></td><td class="num">0.528</td><td class="num">0.602</td></tr>
+	<tr><td>gpt-5-4</td><td class="num">104</td><td class="num">429</td><td class="num">533</td><td class="num">0.081</td><td class="num">0.518</td><td class="num">0.599</td></tr>
+	</tbody>
+</table>
+
+<p>Two stable patterns across both tasks:</p>
+<ul>
+	<li><strong>Anthropic faster, OpenAI cheaper.</strong> Opus builds in half the wall-clock. Codex models spend more tokens (more thinking, more output) but are priced low enough to come out similar on total cost.</li>
+	<li><strong>Opus-4-7 caches aggressively</strong> — input tokens drop to near-zero after turn 1, which is visible in the fix-pass numbers and consistent with the round-1 Todo API experiment.</li>
+</ul>
+</section>
+
+<!-- E2E -->
+<section id="e2e">
+<h2>Functional E2E — 60/60</h2>
+<p>The Playwright suite runs 12 behavioural tests against each build. All pass everywhere once CORS is in place.</p>
+
+<ul>
+	<li>Health dot turns ok when API is up</li>
+	<li>Empty-state visible with zero todos</li>
+	<li>Add valid todo appears in list</li>
+	<li>Empty title shows inline error, does not POST</li>
+	<li>Toggle completed updates <code>data-completed</code> and applies strikethrough</li>
+	<li>Inline edit saves on Enter</li>
+	<li>Inline edit cancels on Escape</li>
+	<li>Delete removes the item from DOM</li>
+	<li>Sort: newest first</li>
+	<li>API base change persists across reload</li>
+	<li>Relative time renders</li>
+	<li>No console errors on load + basic interaction</li>
+</ul>
+
+<p>This is the most boring-yet-important finding: <strong>with a testid contract in the prompt, every contemporary frontier model produces functionally equivalent UIs.</strong> The interesting deltas are everywhere <em>except</em> correctness.</p>
+</section>
+
+<!-- Accessibility -->
+<section id="a11y">
+<h2>Objective accessibility (axe-core)</h2>
+<p>Deterministic, no LLM involved. Axe is run with <code>resultTypes: ["violations", "incomplete"]</code> against the populated page.</p>
+
+<table>
+	<thead>
+	<tr><th>Model</th><th class="num">Violations</th><th>Severity</th><th>Offender</th></tr>
+	</thead>
+	<tbody>
+	<tr class="winner"><td><strong>gpt-5-3-codex</strong></td><td class="num"><strong>0</strong></td><td>—</td><td>clean</td></tr>
+	<tr><td>opus-4-7</td><td class="num">1</td><td><span class="badge warn">moderate</span></td><td>error banner outside landmark</td></tr>
+	<tr><td>opus-4-6</td><td class="num">1</td><td><span class="badge bad">serious</span></td><td>button + timestamp contrast &lt; 4.5:1</td></tr>
+	<tr><td>sonnet-4-6</td><td class="num">1</td><td><span class="badge bad">serious</span></td><td>button + timestamp contrast &lt; 4.5:1</td></tr>
+	<tr><td>gpt-5-4</td><td class="num">2</td><td><span class="badge bad">serious + moderate</span></td><td>accent contrast + landmark</td></tr>
+	</tbody>
+</table>
+
+<p>GPT-5.3-codex is the only model that shipped a zero-violation UI on the first try. It also produced the smallest type-size palette (3 font sizes vs 7–8 for the others) — a small sign that coding-tuned variants default to more restrained design defaults.</p>
+</section>
+
+<!-- Design rubric -->
+<section id="design">
+<h2>LLM design rubric — Nielsen + Gestalt, judged by gpt-5.4</h2>
+<p>21 dimensions, each scored 1–5 by a neutral-ish third-party model (<code>openai/gpt-5.4</code>) with a strict JSON schema.</p>
+
+<table>
+	<thead><tr><th>Model</th><th class="num">Nielsen 10 avg</th><th class="num">Gestalt 3 avg</th><th class="num">Overall avg</th></tr></thead>
+	<tbody>
+	<tr class="winner"><td><strong>gpt-5-4</strong></td><td class="num">3.50</td><td class="num">4.67</td><td class="num"><strong>3.76</strong></td></tr>
+	<tr><td>gpt-5-3-codex</td><td class="num">3.40</td><td class="num">4.00</td><td class="num">3.71</td></tr>
+	<tr><td>opus-4-7</td><td class="num">3.40</td><td class="num">4.33</td><td class="num">3.67</td></tr>
+	<tr><td>opus-4-6</td><td class="num">3.40</td><td class="num">4.33</td><td class="num">3.43</td></tr>
+	<tr><td>sonnet-4-6</td><td class="num">3.10</td><td class="num">4.00</td><td class="num">3.10</td></tr>
+	</tbody>
+</table>
+
+<p><strong>Shared strengths (every model):</strong> aesthetic minimalism (5/5 across the board), clean alignment, plain language, readable hierarchy.</p>
+<p><strong>Shared weaknesses (every model):</strong> loading indicators (2/5), power-user features / keyboard shortcuts (2/5), error prevention beyond the required empty-title case (2/5). These are <em>prompt gaps, not model failures</em> — nobody demanded them.</p>
+
+<div class="caveat">
+	<strong>Judge-bias disclosure:</strong> the design judge is <code>gpt-5.4</code>, which is also a contestant. It scored itself highest. A fairer rerun would use a panel (e.g. Opus + GPT + Gemini) or a human-rated sample. Treat these numbers as directional.
+</div>
+</section>
+
+<!-- Fix-time -->
+<section id="fix">
+<h2>Fix-time — each model fixes its own axe violation</h2>
+<p>Same fix prompt: "read <code>axe-report.json</code>, fix the violation minimally, don't break the E2E contract". The model only sees its own violation. All four fixes kept all 12 E2E tests green and reached 0 axe violations.</p>
+
+<table>
+	<thead><tr><th>Model</th><th class="num">Time</th><th class="num">Turns</th><th class="num">Cost</th><th>Files</th><th>Diff</th></tr></thead>
+	<tbody>
+	<tr><td>opus-4-6</td><td class="num">17 s</td><td class="num">5</td><td class="num">$0.094</td><td><code>styles.css</code></td><td>2 color values</td></tr>
+	<tr><td>opus-4-7</td><td class="num">19 s</td><td class="num">5</td><td class="num">$0.063</td><td><code>index.html</code></td><td>added <code>role="alert"</code></td></tr>
+	<tr class="winner"><td><strong>sonnet-4-6</strong></td><td class="num">20 s</td><td class="num">6</td><td class="num"><strong>$0.037</strong></td><td><code>styles.css</code></td><td>3 color values</td></tr>
+	<tr><td>gpt-5-3-codex</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td>—</td><td>no violation — skipped</td></tr>
+	<tr><td>gpt-5-4</td><td class="num">50 s</td><td class="num">7</td><td class="num">$0.060</td><td><code>index.html</code> + <code>styles.css</code></td><td>landmark + contrast</td></tr>
+	</tbody>
+</table>
+
+<p><strong>4-7's fix is the most elegant</strong> — one attribute, one file, solves an entire landmark-region rule. <strong>Sonnet-4-6's fix is the cheapest</strong>, riding 11.9 k cached input tokens. <strong>Opus-4-6's fix is the fastest wall-clock</strong>, but paid for 16.5 k uncached input.</p>
+</section>
+
+<!-- Observations -->
+<section id="observations">
+<h2>Observations</h2>
+<ol>
+	<li><strong>Different failure modes, not different competence.</strong> Every model produced a working, tested app. The real deltas are in defaults — colour palette, landmark choices, typographic scale.</li>
+	<li><strong>Testable contracts win.</strong> Add <code>data-testid</code> + fixed text to the prompt. One E2E suite then audits every model identically.</li>
+	<li><strong>Codex defaults are terser.</strong> GPT-5.3-codex produced the smallest font-size palette and the only zero-violation UI. Coding-tuned models appear to pick more conservative design defaults.</li>
+	<li><strong>Cache behaviour is a first-class metric.</strong> On the fix pass, opus-4-7 and sonnet-4-6 paid near-zero input cost thanks to prompt cache hits; opus-4-6 paid for 16.5k uncached input on the same task.</li>
+	<li><strong>Spec holes are model-agnostic.</strong> The CORS gap hit all five models identically. E2E finds spec bugs unit tests can't.</li>
+	<li><strong>Judge-bias is measurable.</strong> gpt-5.4 rated gpt-5.4 highest — expected. Worth reruning with a panel.</li>
+</ol>
+</section>
+
+<!-- Reproduce -->
+<section id="reproduce">
+<h2>Reproduce in ~25 minutes</h2>
+<p>Everything — prompts, harness scripts, raw JSONL streams, axe reports, design-rubric JSON, screenshots — is <a href="https://github.com/ljack/p10/tree/master/agents-test/opus-compare">in the repo</a>. Running one model end-to-end:</p>
+
+<pre><code>cd agents-test/opus-compare
+
+# API + UI build + CORS patch + screenshots + objective axe
+./scripts/run-full.sh openai/gpt-5.4 gpt-5-4 4141 9191
+
+# Functional E2E (add a project entry first)
+cd tests &amp;&amp; npx playwright test --project=gpt-5-4
+
+# LLM design rubric
+node design/judge.mjs gpt-5-4 reports/gpt-5-4 runs/ui-gpt-5-4
+
+# Fix pass
+./scripts/run-fix.sh openai/gpt-5.4 runs/ui-gpt-5-4 prompt/fix-axe.prompt.md runs/ui-gpt-5-4/fix-stream.jsonl</code></pre>
+
+<p>The harness is model-agnostic; any <code>&lt;provider&gt;/&lt;model&gt;</code> that works through <code>pi</code> will run.</p>
+</section>
+
+<!-- Caveats -->
+<section id="caveats">
+<h2>Caveats</h2>
+<ul>
+	<li><strong>n=1 per model.</strong> Variance in LLM runs is real; 3–5 replications needed for claims to mean anything statistically.</li>
+	<li><strong>Judge self-bias.</strong> <code>gpt-5.4</code> is both contestant and judge. Rerun with Opus or a panel.</li>
+	<li><strong>Single task type.</strong> Small Todo CRUD. Harder tasks (multi-file refactors, ambiguous bugs, API integration) would likely re-rank things.</li>
+	<li><strong>GPT-5.4-codex not available.</strong> The codex fine-tune advertised in <code>pi</code>'s model registry returns 404 on the OpenAI API. Substituted with <code>gpt-5.3-codex</code>.</li>
+	<li><strong>Rubric is one opinion.</strong> Nielsen + Gestalt is classic but not canonical. Rerun with Cooper's IxD or a heuristic-inquiry rubric for cross-validation.</li>
+	<li><strong>No mobile / no performance.</strong> Desktop-only, no TTFB/FCP metrics.</li>
+</ul>
+</section>
+
+</main>
+
+<footer>
+	<p>Benchmark + site by <a href="https://github.com/ljack">Jarkko Lietolahti</a>. Source: <a href="https://github.com/ljack/p10">github.com/ljack/p10</a> · <a href="https://github.com/ljack/p10/blob/master/agents-test/opus-compare/REPORT-v3.md">Raw report (Markdown)</a> · <a href="sitemap.xml">Sitemap</a></p>
+	<p>Updated 2026-04-16</p>
+</footer>
+
+</body>
+</html>
