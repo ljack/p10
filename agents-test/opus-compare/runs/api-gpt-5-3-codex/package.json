@@ -1,0 +1,23 @@
+{
+  "name": "todo-api",
+  "version": "1.0.0",
+  "description": "Small Todo REST API with Express",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "jest"
+  },
+  "keywords": [
+    "todo",
+    "express",
+    "api"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "jest": "^30.0.5",
+    "supertest": "^7.1.1"
+  }
+}

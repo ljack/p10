@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Todo UI</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app" data-testid="app-root">
+      <div class="error-banner" data-testid="error-banner" role="alert" hidden>
+        <span class="error-message"></span>
+        <button
+          type="button"
+          data-testid="error-banner-dismiss"
+          aria-label="Dismiss error"
+        >
+          Dismiss
+        </button>
+      </div>
+
+      <header class="app-header">
+        <h1>Todo UI</h1>
+        <div class="api-base">
+          <label for="api-base-input">API base</label>
+          <input
+            id="api-base-input"
+            type="url"
+            data-testid="api-base-input"
+            aria-label="API base URL"
+            placeholder="http://localhost:3000"
+          />
+          <span
+            class="status-dot"
+            data-testid="api-base-status"
+            data-status="down"
+            aria-hidden="true"
+          ></span>
+        </div>
+      </header>
+
+      <main>
+        <form data-testid="add-form" id="add-form" novalidate>
+          <input
+            id="add-input"
+            type="text"
+            data-testid="add-input"
+            aria-label="New todo title"
+            placeholder="What needs to be done?"
+          />
+          <button type="submit" data-testid="add-submit">Add</button>
+        </form>
+        <div id="add-error-slot"></div>
+
+        <ul class="todo-list" data-testid="todo-list" id="todo-list"></ul>
+        <p class="empty-state" data-testid="empty-state" id="empty-state">
+          No todos yet. Add one above.
+        </p>
+      </main>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

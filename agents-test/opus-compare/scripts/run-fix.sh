@@ -10,10 +10,16 @@ OUT_STREAM="$4"
 PROMPT=$(cat "$PROMPT_FILE")
 cd "$RUN_DIR"
 
+if [[ "$MODEL" == */* ]]; then
+  MODEL_ARG="$MODEL"
+else
+  MODEL_ARG="anthropic/$MODEL"
+fi
+
 START=$(date +%s)
 pi -p \
   --mode json \
-  --model "anthropic/$MODEL" \
+  --model "$MODEL_ARG" \
   --no-context-files --no-extensions --no-skills --no-prompt-templates \
   --tools read,bash,edit,write \
   --session-dir "$RUN_DIR/fix-session" \

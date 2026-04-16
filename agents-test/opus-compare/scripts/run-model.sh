@@ -17,10 +17,17 @@ echo "=== cwd: $(pwd) ==="
 START_EPOCH=$(date +%s)
 START_ISO=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-# Run pi in JSON streaming mode, no prior context files, opus with high thinking off to keep comparable
+# Accept either "model-id" (assumed anthropic) or "provider/model-id"
+if [[ "$MODEL" == */* ]]; then
+  MODEL_ARG="$MODEL"
+else
+  MODEL_ARG="anthropic/$MODEL"
+fi
+
+# Run pi in JSON streaming mode, no prior context files, thinking off to keep comparable
 pi -p \
   --mode json \
-  --model "anthropic/$MODEL" \
+  --model "$MODEL_ARG" \
   --no-context-files \
   --no-extensions \
   --no-skills \
@@ -36,7 +43,7 @@ DURATION=$((END_EPOCH - START_EPOCH))
 
 cat >"$RUN_DIR/run-meta.json" <<JSON
 {
-  "model": "$MODEL",
+  "model": "$MODEL_ARG",
   "started": "$START_ISO",
   "ended": "$END_ISO",
   "durationSec": $DURATION,

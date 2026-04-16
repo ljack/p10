@@ -1,0 +1,8 @@
+{
+  "model": "openai/gpt-5.3-codex",
+  "started": "2026-04-16T19:05:46Z",
+  "ended": "2026-04-16T19:07:13Z",
+  "durationSec": 87,
+  "prompt": "todo-api.prompt.md",
+  "cwd": "/Users/jarkko/_dev/p10/agents-test/opus-compare/runs/api-gpt-5-3-codex"
+}

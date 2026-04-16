@@ -1,0 +1,93 @@
+{
+  "build": "sonnet-4-6",
+  "uiUrl": "http://localhost:9595",
+  "apiUrl": "http://localhost:4545",
+  "timestamp": "2026-04-16T17:57:52.877Z",
+  "pageWeightBytes": {
+    "html": 566126,
+    "css": 5468,
+    "js": 9049,
+    "total": 580643
+  },
+  "html": {
+    "sizeBytes": 566126,
+    "headings": {
+      "h1": 1,
+      "h2": 0,
+      "h3": 0
+    },
+    "landmarks": {
+      "main": 1,
+      "header": 1,
+      "nav": 0,
+      "footer": 0
+    },
+    "inputsWithLabels": 17,
+    "buttons": 3,
+    "images": 3,
+    "imagesWithAlt": 0,
+    "htmlLang": true
+  },
+  "css": {
+    "uniqueColors": 23,
+    "colorSample": [
+      "#f0f2f5",
+      "#1a1a1a",
+      "#fff5f5",
+      "#fca5a5",
+      "#b91c1c",
+      "rgba(185,28,28,.1)",
+      "#fff",
+      "rgba(0,0,0,.08)",
+      "#111",
+      "#666"
+    ],
+    "uniqueFontSizes": 8,
+    "fontSizeSample": [
+      "0.9rem",
+      "1rem",
+      "1.35rem",
+      "0.8rem",
+      "0.82rem",
+      "0.83rem",
+      "0.95rem",
+      "0.73rem"
+    ],
+    "uniqueSpacings": 19,
+    "uniqueZIndexes": 0,
+    "importantCount": 0,
+    "rulesCount": 46,
+    "sizeBytes": 5468
+  },
+  "axe": {
+    "violations": 1,
+    "bySeverity": {
+      "serious": 1
+    },
+    "topViolations": [
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.11/color-contrast?application=axeAPI",
+        "nodes": [
+          {
+            "target": [
+              "button[data-testid=\"add-submit\"]"
+            ],
+            "html": "<button data-testid=\"add-submit\" type=\"submit\">Add</button>",
+            "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.67 (foreground color: #ffffff, background color: #3b82f6, font size: 12.0pt (16px), font weight: normal). Expected contrast ratio of 4.5:1"
+          },
+          {
+            "target": [
+              "span[data-testid=\"todo-item-time\"]"
+            ],
+            "html": "<span data-testid=\"todo-item-time\">just now</span>",
+            "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.53 (foreground color: #9ca3af, background color: #ffffff, font size: 8.8pt (11.68px), font weight: normal). Expected contrast ratio of 4.5:1"
+          }
+        ]
+      }
+    ],
+    "incomplete": 1
+  }
+}

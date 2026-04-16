@@ -1,0 +1,233 @@
+/* ── Reset & base ─────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: #f0f2f5;
+  color: #1a1a1a;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* ── Layout ───────────────────────────────────────────────── */
+#app-root {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 3rem;
+}
+
+/* ── Error banner ─────────────────────────────────────────── */
+#error-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  background: #fff5f5;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  color: #b91c1c;
+  font-size: 0.9rem;
+}
+
+#error-banner .error-message { flex: 1; }
+
+#error-banner button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+#error-banner button:hover { opacity: 1; background: rgba(185,28,28,.1); }
+#error-banner button:focus-visible { outline: 2px solid #b91c1c; }
+
+/* ── Header ───────────────────────────────────────────────── */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  background: #fff;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+
+header h1 { font-size: 1.35rem; font-weight: 700; color: #111; }
+
+.api-base-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.api-base-row label {
+  font-size: 0.8rem;
+  color: #666;
+  white-space: nowrap;
+}
+
+#api-base-input {
+  font-size: 0.82rem;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  width: 220px;
+  color: #374151;
+}
+#api-base-input:focus { outline: 2px solid #3b82f6; border-color: transparent; }
+
+#api-base-status {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #d1d5db;
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+#api-base-status[data-status="ok"]   { background: #22c55e; }
+#api-base-status[data-status="down"] { background: #ef4444; }
+
+/* ── Main card ────────────────────────────────────────────── */
+main {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+
+/* ── Add form ─────────────────────────────────────────────── */
+#add-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+#add-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 1rem;
+  color: #111;
+}
+#add-input:focus { outline: 2px solid #3b82f6; border-color: transparent; }
+#add-input:disabled { background: #f9fafb; cursor: not-allowed; }
+
+#add-form button[type="submit"] {
+  padding: 0.6rem 1.25rem;
+  background: #1d4ed8;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+#add-form button[type="submit"]:hover:not(:disabled) { background: #1e40af; }
+#add-form button[type="submit"]:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+#add-form button[type="submit"]:disabled { background: #93c5fd; cursor: not-allowed; }
+
+#add-error {
+  width: 100%;
+  font-size: 0.83rem;
+  color: #dc2626;
+}
+
+/* ── Empty state ──────────────────────────────────────────── */
+#empty-state {
+  text-align: center;
+  color: #9ca3af;
+  padding: 2.5rem 0 1rem;
+  font-size: 0.95rem;
+}
+
+/* ── Todo list ────────────────────────────────────────────── */
+#todo-list { list-style: none; }
+
+[data-testid="todo-item"] {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.25rem;
+  border-bottom: 1px solid #f3f4f6;
+  transition: opacity 0.15s;
+}
+[data-testid="todo-item"]:last-child { border-bottom: none; }
+[data-testid="todo-item"][aria-busy="true"] { opacity: 0.55; }
+
+[data-testid="todo-item-toggle"] {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  cursor: pointer;
+  accent-color: #3b82f6;
+}
+
+[data-testid="todo-item-title"] {
+  flex: 1;
+  cursor: pointer;
+  word-break: break-word;
+  padding: 2px 5px;
+  border-radius: 4px;
+  min-width: 0;
+}
+[data-testid="todo-item-title"]:hover { background: #f3f4f6; }
+
+[data-completed="true"] [data-testid="todo-item-title"] {
+  text-decoration: line-through;
+  color: #9ca3af;
+}
+
+[data-testid="todo-item-title-input"] {
+  flex: 1;
+  min-width: 0;
+  font-size: 1rem;
+  font-family: inherit;
+  padding: 2px 6px;
+  border: 1px solid #3b82f6;
+  border-radius: 4px;
+  outline: none;
+  color: #111;
+}
+
+[data-testid="todo-item-time"] {
+  font-size: 0.73rem;
+  color: #6b7280;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+[data-testid="todo-item-delete"] {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #d1d5db;
+  font-size: 0.9rem;
+  padding: 3px 6px;
+  border-radius: 5px;
+  flex-shrink: 0;
+  transition: color 0.15s, background 0.15s;
+  line-height: 1;
+}
+[data-testid="todo-item-delete"]:hover { color: #ef4444; background: #fff5f5; }
+[data-testid="todo-item-delete"]:focus-visible { outline: 2px solid #ef4444; }
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 480px) {
+  header { flex-direction: column; align-items: flex-start; }
+  .api-base-row { flex-wrap: wrap; }
+  #api-base-input { width: 100%; }
+}

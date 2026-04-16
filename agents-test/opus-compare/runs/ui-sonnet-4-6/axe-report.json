@@ -1,0 +1,31 @@
+{
+  "violations": 1,
+  "bySeverity": {
+    "serious": 1
+  },
+  "topViolations": [
+    {
+      "id": "color-contrast",
+      "impact": "serious",
+      "help": "Elements must meet minimum color contrast ratio thresholds",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.11/color-contrast?application=axeAPI",
+      "nodes": [
+        {
+          "target": [
+            "button[data-testid=\"add-submit\"]"
+          ],
+          "html": "<button data-testid=\"add-submit\" type=\"submit\">Add</button>",
+          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.67 (foreground color: #ffffff, background color: #3b82f6, font size: 12.0pt (16px), font weight: normal). Expected contrast ratio of 4.5:1"
+        },
+        {
+          "target": [
+            "span[data-testid=\"todo-item-time\"]"
+          ],
+          "html": "<span data-testid=\"todo-item-time\">just now</span>",
+          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.53 (foreground color: #9ca3af, background color: #ffffff, font size: 8.8pt (11.68px), font weight: normal). Expected contrast ratio of 4.5:1"
+        }
+      ]
+    }
+  ],
+  "incomplete": 1
+}

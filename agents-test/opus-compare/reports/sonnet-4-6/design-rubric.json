@@ -1,0 +1,210 @@
+{
+  "build": "sonnet-4-6",
+  "rubric_version": "1",
+  "scores": {
+    "nielsen": {
+      "visibility_of_system_status": {
+        "score": 3,
+        "confidence": 0.77,
+        "evidence": [
+          "#api-base-status[data-status]",
+          "[data-testid=\"todo-item\"][aria-busy=\"true\"]",
+          "#error-banner"
+        ]
+      },
+      "match_with_real_world": {
+        "score": 4,
+        "confidence": 0.89,
+        "evidence": [
+          "<title>Todo App</title>",
+          "placeholder=\"What needs to be done?\"",
+          "#empty-state"
+        ]
+      },
+      "user_control_freedom": {
+        "score": 3,
+        "confidence": 0.67,
+        "evidence": [
+          "button[data-testid=\"error-banner-dismiss\"]",
+          "[data-testid=\"todo-item-delete\"]",
+          "[data-testid=\"todo-item-title-input\"]"
+        ]
+      },
+      "consistency_standards": {
+        "score": 4,
+        "confidence": 0.87,
+        "evidence": [
+          "header, main",
+          "#add-input, #api-base-input",
+          "#add-form button[type=\"submit\"]"
+        ]
+      },
+      "error_prevention": {
+        "score": 2,
+        "confidence": 0.82,
+        "evidence": [
+          "<form data-testid=\"add-form\" id=\"add-form\" novalidate>",
+          "input[data-testid=\"add-input\"]",
+          "button[data-testid=\"add-submit\"]"
+        ]
+      },
+      "recognition_over_recall": {
+        "score": 3,
+        "confidence": 0.78,
+        "evidence": [
+          "label[for=\"api-base-input\"]",
+          "placeholder=\"What needs to be done?\"",
+          "#empty-state"
+        ]
+      },
+      "flexibility_efficiency": {
+        "score": 2,
+        "confidence": 0.63,
+        "evidence": [
+          "[data-testid=\"todo-item-toggle\"]",
+          "[data-testid=\"todo-item-title-input\"]",
+          "buttons: 3"
+        ]
+      },
+      "aesthetic_minimalist": {
+        "score": 4,
+        "confidence": 0.89,
+        "evidence": [
+          "#app-root { max-width: 640px; }",
+          "header, main { background: #fff; }",
+          "css.uniqueColors = 23"
+        ]
+      },
+      "help_users_with_errors": {
+        "score": 2,
+        "confidence": 0.84,
+        "evidence": [
+          "#add-error[role=\"alert\"]",
+          "<span class=\"error-message\"></span>",
+          "button[aria-label=\"Dismiss error\"]"
+        ]
+      },
+      "help_and_documentation": {
+        "score": 4,
+        "confidence": 0.83,
+        "evidence": [
+          "placeholder=\"What needs to be done?\"",
+          "#empty-state: 'No todos yet. Add one above.'",
+          "#api-base-status title=\"API health\""
+        ]
+      }
+    },
+    "gestalt": {
+      "proximity": {
+        "score": 4,
+        "confidence": 0.86,
+        "evidence": [
+          "header and main cards",
+          "#add-form { gap: 0.5rem; }",
+          "[data-testid=\"todo-item\"] { gap: 0.65rem; }"
+        ]
+      },
+      "similarity": {
+        "score": 4,
+        "confidence": 0.88,
+        "evidence": [
+          "border-radius repeated across cards/controls",
+          "[data-testid=\"todo-item\"] repeated row pattern",
+          "body { font-family: -apple-system, ... }"
+        ]
+      },
+      "alignment": {
+        "score": 4,
+        "confidence": 0.87,
+        "evidence": [
+          "#app-root { margin: 0 auto; max-width: 640px; }",
+          "#add-form { display: flex; }",
+          "[data-testid=\"todo-item\"] { align-items: center; }"
+        ]
+      }
+    },
+    "hierarchy": {
+      "score": 4,
+      "confidence": 0.84,
+      "evidence": [
+        "header h1 { font-size: 1.35rem; font-weight: 700; }",
+        "#add-form before #todo-list",
+        "#empty-state centered secondary text"
+      ]
+    },
+    "typography": {
+      "score": 3,
+      "confidence": 0.82,
+      "evidence": [
+        "body uses one system font stack",
+        "font sizes include 0.73rem / 0.8rem / 0.82rem",
+        "[data-testid=\"todo-item-time\"] { font-size: 0.73rem; }"
+      ]
+    },
+    "state_loading": {
+      "score": 2,
+      "confidence": 0.63,
+      "evidence": [
+        "[data-testid=\"todo-item\"][aria-busy=\"true\"] { opacity: 0.55; }",
+        "#api-base-status[data-status]",
+        "no loading text/spinner in DOM"
+      ]
+    },
+    "state_empty": {
+      "score": 4,
+      "confidence": 0.94,
+      "evidence": [
+        "#empty-state",
+        "'No todos yet. Add one above.'",
+        "#add-form"
+      ]
+    },
+    "state_error": {
+      "score": 2,
+      "confidence": 0.88,
+      "evidence": [
+        "#error-banner",
+        "<span class=\"error-message\"></span>",
+        "button[data-testid=\"error-banner-dismiss\"]"
+      ]
+    },
+    "contrast": {
+      "score": 2,
+      "confidence": 0.97,
+      "evidence": [
+        "axe: color-contrast serious violation",
+        "button[data-testid=\"add-submit\"] contrast 3.67:1",
+        "span[data-testid=\"todo-item-time\"] contrast 2.53:1"
+      ]
+    },
+    "touch_targets": {
+      "score": 2,
+      "confidence": 0.9,
+      "evidence": [
+        "[data-testid=\"todo-item-toggle\"] { width: 18px; height: 18px; }",
+        "#error-banner button { padding: 2px 4px; }",
+        "[data-testid=\"todo-item-delete\"] { padding: 3px 6px; }"
+      ]
+    },
+    "focus_visible": {
+      "score": 3,
+      "confidence": 0.74,
+      "evidence": [
+        "#add-form button[type=\"submit\"]:focus-visible",
+        "[data-testid=\"todo-item-delete\"]:focus-visible",
+        "#api-base-input:focus only"
+      ]
+    }
+  },
+  "summary": "This build presents a clean, restrained todo UI with solid grouping, clear primary task entry, and language that mostly matches the domain well. The empty state is helpful and the overall alignment and consistency are strong, while toggle, edit, and delete affordances support basic task management. However, error handling is weak: the visible error banner appears empty, and invalid input prevention is not clearly enforced. Accessibility is the main concern, with confirmed contrast failures and several interactive targets that appear smaller than recommended.",
+  "top_strengths": [
+    "Clean card-based layout with strong grouping and alignment",
+    "Helpful empty state copy and straightforward task-entry flow",
+    "Consistent visual styling across inputs, list items, and actions"
+  ],
+  "top_issues": [
+    "Error state presentation appears blank and not informative",
+    "Low contrast on the Add button and timestamp text",
+    "Checkbox, dismiss, and delete controls have small hit areas"
+  ]
+}

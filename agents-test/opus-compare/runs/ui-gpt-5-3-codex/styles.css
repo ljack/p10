@@ -1,0 +1,215 @@
+:root {
+  color-scheme: light;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #f7f8fb;
+  color: #1f2937;
+}
+
+.app {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.error-banner {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  align-items: center;
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.error-banner button {
+  border: 1px solid #ef4444;
+  background: #fff;
+  color: #991b1b;
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 0.35rem 0.55rem;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.api-base {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.api-base input {
+  width: min(320px, 75vw);
+}
+
+.status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: #ef4444;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.status-dot[data-status="ok"] {
+  background: #16a34a;
+}
+
+form[data-testid="add-form"] {
+  display: flex;
+  gap: 0.5rem;
+}
+
+input,
+button {
+  font: inherit;
+}
+
+input[type="text"],
+input[type="url"] {
+  padding: 0.6rem 0.7rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+}
+
+#add-input {
+  flex: 1;
+}
+
+button[type="submit"],
+.todo-delete {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  border-radius: 10px;
+  padding: 0.55rem 0.8rem;
+  cursor: pointer;
+}
+
+button:hover,
+.todo-delete:hover {
+  background: #f1f5f9;
+}
+
+button:disabled,
+input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+#add-error-slot {
+  min-height: 1.4rem;
+}
+
+[data-testid="add-error"] {
+  color: #b91c1c;
+  margin: 0.4rem 0 0;
+  font-size: 0.95rem;
+}
+
+.todo-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+}
+
+.todo-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 0.65rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0.6rem 0.7rem;
+  margin-bottom: 0.55rem;
+}
+
+.todo-item[data-completed="true"] [data-testid="todo-item-title"] {
+  color: #6b7280;
+  text-decoration: line-through;
+}
+
+.todo-item[aria-busy="true"] {
+  opacity: 0.7;
+}
+
+.todo-title {
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+[data-testid="todo-item-title-input"] {
+  width: 100%;
+}
+
+.todo-time {
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.todo-delete {
+  line-height: 1;
+  min-width: 2rem;
+}
+
+.empty-state {
+  color: #6b7280;
+  margin-top: 1rem;
+}
+
+@media (max-width: 520px) {
+  .todo-item {
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+      "toggle title delete"
+      "time time time";
+  }
+
+  [data-testid="todo-item-toggle"] {
+    grid-area: toggle;
+  }
+
+  [data-testid="todo-item-title"],
+  [data-testid="todo-item-title-input"] {
+    grid-area: title;
+  }
+
+  .todo-delete {
+    grid-area: delete;
+  }
+
+  .todo-time {
+    grid-area: time;
+    margin-left: 1.9rem;
+  }
+}

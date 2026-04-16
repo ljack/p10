@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Todo UI</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <div class="app-shell" data-testid="app-root">
+      <div
+        class="error-banner"
+        data-testid="error-banner"
+        role="region"
+        aria-label="Error"
+        hidden
+      >
+        <span class="error-message"></span>
+        <button
+          type="button"
+          data-testid="error-banner-dismiss"
+          aria-label="Dismiss error"
+        >
+          Dismiss
+        </button>
+      </div>
+
+      <header class="header">
+        <div>
+          <h1>Todo UI</h1>
+          <p>Simple frontend for the Todo REST API</p>
+        </div>
+
+        <div class="api-config">
+          <label class="field-label" for="api-base">API base</label>
+          <div class="api-input-row">
+            <input
+              id="api-base"
+              type="url"
+              data-testid="api-base-input"
+              aria-label="API base URL"
+              placeholder="http://localhost:3000"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <span
+              class="status-dot"
+              data-testid="api-base-status"
+              data-status="down"
+              aria-hidden="true"
+            ></span>
+          </div>
+        </div>
+      </header>
+
+      <main>
+        <form class="add-form" data-testid="add-form" novalidate>
+          <input
+            type="text"
+            data-testid="add-input"
+            aria-label="New todo title"
+            placeholder="What needs to be done?"
+            maxlength="200"
+          />
+          <button type="submit" data-testid="add-submit">Add</button>
+        </form>
+
+        <div id="add-error-slot"></div>
+
+        <ul class="todo-list" data-testid="todo-list" aria-live="polite"></ul>
+        <p class="empty-state" data-testid="empty-state">No todos yet. Add one above.</p>
+      </main>
+    </div>
+  </body>
+</html>

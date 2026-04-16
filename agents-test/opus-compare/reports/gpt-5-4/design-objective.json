@@ -1,0 +1,98 @@
+{
+  "build": "gpt-5-4",
+  "uiUrl": "http://localhost:9191",
+  "apiUrl": "http://localhost:4141",
+  "timestamp": "2026-04-16T19:22:13.350Z",
+  "pageWeightBytes": {
+    "html": 566017,
+    "css": 4496,
+    "js": 9029,
+    "total": 579542
+  },
+  "html": {
+    "sizeBytes": 566017,
+    "headings": {
+      "h1": 1,
+      "h2": 0,
+      "h3": 0
+    },
+    "landmarks": {
+      "main": 1,
+      "header": 1,
+      "nav": 0,
+      "footer": 0
+    },
+    "inputsWithLabels": 15,
+    "buttons": 2,
+    "images": 3,
+    "imagesWithAlt": 0,
+    "htmlLang": true
+  },
+  "css": {
+    "uniqueColors": 20,
+    "colorSample": [
+      "#f5f7fb",
+      "#ffffff",
+      "#d7dce5",
+      "#1d2433",
+      "#647089",
+      "#3b82f6",
+      "#2563eb",
+      "#dc2626",
+      "#fef2f2",
+      "#16a34a"
+    ],
+    "uniqueFontSizes": 4,
+    "fontSizeSample": [
+      "clamp(1.6rem, 3vw, 2rem)",
+      "0.92rem",
+      "0.95rem",
+      "0.9rem"
+    ],
+    "uniqueSpacings": 16,
+    "uniqueZIndexes": 0,
+    "importantCount": 0,
+    "rulesCount": 47,
+    "sizeBytes": 4496
+  },
+  "axe": {
+    "violations": 2,
+    "bySeverity": {
+      "serious": 1,
+      "moderate": 1
+    },
+    "topViolations": [
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.11/color-contrast?application=axeAPI",
+        "nodes": [
+          {
+            "target": [
+              "button[type=\"submit\"]"
+            ],
+            "html": "<button type=\"submit\" data-testid=\"add-submit\">Add</button>",
+            "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.67 (foreground color: #ffffff, background color: #3b82f6, font size: 12.0pt (16px), font weight: normal). Expected contrast ratio of 4.5:1"
+          }
+        ]
+      },
+      {
+        "id": "region",
+        "impact": "moderate",
+        "help": "All page content should be contained by landmarks",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.11/region?application=axeAPI",
+        "nodes": [
+          {
+            "target": [
+              ".error-message"
+            ],
+            "html": "<span class=\"error-message\">Failed to fetch</span>",
+            "failureSummary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+          }
+        ]
+      }
+    ],
+    "incomplete": 0
+  }
+}

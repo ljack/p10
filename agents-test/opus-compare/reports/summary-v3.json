@@ -1,0 +1,263 @@
+[
+  {
+    "slug": "opus-4-6",
+    "apiSec": 81,
+    "uiSec": 109,
+    "apiTokensIO": 16687,
+    "uiTokensIO": 10797,
+    "apiCost": 0.21228275000000005,
+    "uiCost": 0.3060742500000001,
+    "axePreViolations": 1,
+    "axePreSeverity": "serious",
+    "rubricNielsen": "3.40",
+    "rubricGestalt": "4.33",
+    "rubricOverall": "3.43",
+    "fixStream": {
+      "turns": 5,
+      "tools": {
+        "read": 3,
+        "bash": 1,
+        "edit": 1
+      },
+      "msgs": 5,
+      "input": 15997,
+      "output": 561,
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "cost": 0.09401000000000001
+    },
+    "uiStream": {
+      "turns": 10,
+      "tools": {
+        "write": 5,
+        "bash": 4
+      },
+      "msgs": 10,
+      "input": 3655,
+      "output": 7142,
+      "cacheRead": 67336,
+      "cacheWrite": 12093,
+      "cost": 0.3060742500000001
+    },
+    "apiStream": {
+      "turns": 8,
+      "tools": {
+        "write": 5,
+        "bash": 2
+      },
+      "msgs": 8,
+      "input": 12853,
+      "output": 3834,
+      "cacheRead": 18098,
+      "cacheWrite": 6899,
+      "cost": 0.21228275000000005
+    }
+  },
+  {
+    "slug": "opus-4-7",
+    "apiSec": 55,
+    "uiSec": 95,
+    "apiTokensIO": 5069,
+    "uiTokensIO": 8997,
+    "apiCost": 0.19497025,
+    "uiCost": 0.36069625000000005,
+    "axePreViolations": 1,
+    "axePreSeverity": "moderate",
+    "rubricNielsen": "3.40",
+    "rubricGestalt": "4.33",
+    "rubricOverall": "3.67",
+    "fixStream": {
+      "turns": 5,
+      "tools": {
+        "read": 2,
+        "bash": 1,
+        "edit": 1
+      },
+      "msgs": 5,
+      "input": 10,
+      "output": 976,
+      "cacheRead": 13437,
+      "cacheWrite": 5008,
+      "cost": 0.0624685
+    },
+    "uiStream": {
+      "turns": 8,
+      "tools": {
+        "bash": 2,
+        "write": 5
+      },
+      "msgs": 8,
+      "input": 13,
+      "output": 8984,
+      "cacheRead": 59475,
+      "cacheWrite": 17007,
+      "cost": 0.36069625000000005
+    },
+    "apiStream": {
+      "turns": 5,
+      "tools": {
+        "bash": 3,
+        "write": 6
+      },
+      "msgs": 5,
+      "input": 10,
+      "output": 5059,
+      "cacheRead": 23728,
+      "cacheWrite": 9053,
+      "cost": 0.19497025
+    }
+  },
+  {
+    "slug": "sonnet-4-6",
+    "apiSec": 109,
+    "uiSec": 224,
+    "apiTokensIO": 6665,
+    "uiTokensIO": 17417,
+    "apiCost": 0.1585755,
+    "uiCost": 0.4360628999999999,
+    "axePreViolations": 1,
+    "axePreSeverity": "serious",
+    "rubricNielsen": "3.10",
+    "rubricGestalt": "4.00",
+    "rubricOverall": "3.10",
+    "fixStream": {
+      "turns": 6,
+      "tools": {
+        "read": 3,
+        "bash": 1,
+        "edit": 1
+      },
+      "msgs": 6,
+      "input": 8,
+      "output": 659,
+      "cacheRead": 11993,
+      "cacheWrite": 6147,
+      "cost": 0.036558150000000005
+    },
+    "uiStream": {
+      "turns": 18,
+      "tools": {
+        "write": 5,
+        "bash": 12
+      },
+      "msgs": 18,
+      "input": 20,
+      "output": 17397,
+      "cacheRead": 312768,
+      "cacheWrite": 21658,
+      "cost": 0.4360628999999999
+    },
+    "apiStream": {
+      "turns": 13,
+      "tools": {
+        "bash": 6,
+        "write": 5,
+        "edit": 1
+      },
+      "msgs": 13,
+      "input": 15,
+      "output": 6650,
+      "cacheRead": 66510,
+      "cacheWrite": 10354,
+      "cost": 0.1585755
+    }
+  },
+  {
+    "slug": "gpt-5-3-codex",
+    "apiSec": 87,
+    "uiSec": 346,
+    "apiTokensIO": 7612,
+    "uiTokensIO": 74310,
+    "apiCost": 0.07388920000000002,
+    "uiCost": 0.5280162999999999,
+    "axePreViolations": 0,
+    "axePreSeverity": "-",
+    "rubricNielsen": "3.40",
+    "rubricGestalt": "4.00",
+    "rubricOverall": "3.71",
+    "fixStream": null,
+    "uiStream": {
+      "turns": 20,
+      "tools": {
+        "bash": 10,
+        "write": 8,
+        "read": 1
+      },
+      "msgs": 20,
+      "input": 47202,
+      "output": 27108,
+      "cacheRead": 376576,
+      "cacheWrite": 0,
+      "cost": 0.5280162999999999
+    },
+    "apiStream": {
+      "turns": 7,
+      "tools": {
+        "bash": 5,
+        "write": 5
+      },
+      "msgs": 7,
+      "input": 3112,
+      "output": 4500,
+      "cacheRead": 31104,
+      "cacheWrite": 0,
+      "cost": 0.07388920000000002
+    }
+  },
+  {
+    "slug": "gpt-5-4",
+    "apiSec": 104,
+    "uiSec": 429,
+    "apiTokensIO": 7431,
+    "uiTokensIO": 34509,
+    "apiCost": 0.081329,
+    "uiCost": 0.5184120000000001,
+    "axePreViolations": 2,
+    "axePreSeverity": "serious,moderate",
+    "rubricNielsen": "3.50",
+    "rubricGestalt": "4.67",
+    "rubricOverall": "3.76",
+    "fixStream": {
+      "turns": 7,
+      "tools": {
+        "bash": 2,
+        "read": 6,
+        "edit": 2
+      },
+      "msgs": 7,
+      "input": 7910,
+      "output": 1986,
+      "cacheRead": 39808,
+      "cacheWrite": 0,
+      "cost": 0.059516999999999994
+    },
+    "uiStream": {
+      "turns": 22,
+      "tools": {
+        "bash": 10,
+        "write": 9,
+        "read": 3,
+        "edit": 3
+      },
+      "msgs": 22,
+      "input": 9822,
+      "output": 24687,
+      "cacheRead": 494208,
+      "cacheWrite": 0,
+      "cost": 0.5184120000000001
+    },
+    "apiStream": {
+      "turns": 6,
+      "tools": {
+        "bash": 4,
+        "write": 5
+      },
+      "msgs": 6,
+      "input": 2928,
+      "output": 4503,
+      "cacheRead": 25856,
+      "cacheWrite": 0,
+      "cost": 0.081329
+    }
+  }
+]

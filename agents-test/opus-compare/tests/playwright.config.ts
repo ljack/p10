@@ -16,25 +16,28 @@ export default defineConfig({
 	projects: [
 		{
 			name: 'opus-4-6',
-			use: {
-				baseURL: 'http://localhost:9696',
-			},
-			metadata: {
-				build: 'opus-4-6',
-				uiUrl: 'http://localhost:9696',
-				apiUrl: 'http://localhost:4646',
-			},
+			use: { baseURL: 'http://localhost:9696' },
+			metadata: { build: 'opus-4-6', apiUrl: 'http://localhost:4646' },
 		},
 		{
 			name: 'opus-4-7',
-			use: {
-				baseURL: 'http://localhost:9797',
-			},
-			metadata: {
-				build: 'opus-4-7',
-				uiUrl: 'http://localhost:9797',
-				apiUrl: 'http://localhost:4747',
-			},
+			use: { baseURL: 'http://localhost:9797' },
+			metadata: { build: 'opus-4-7', apiUrl: 'http://localhost:4747' },
+		},
+		{
+			name: 'sonnet-4-6',
+			use: { baseURL: 'http://localhost:9595' },
+			metadata: { build: 'sonnet-4-6', apiUrl: 'http://localhost:4545' },
+		},
+		{
+			name: 'gpt-5-3-codex',
+			use: { baseURL: 'http://localhost:9090' },
+			metadata: { build: 'gpt-5-3-codex', apiUrl: 'http://localhost:4040' },
+		},
+		{
+			name: 'gpt-5-4',
+			use: { baseURL: 'http://localhost:9191' },
+			metadata: { build: 'gpt-5-4', apiUrl: 'http://localhost:4141' },
 		},
 	],
 });

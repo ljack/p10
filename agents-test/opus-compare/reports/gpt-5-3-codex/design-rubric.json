@@ -1,0 +1,207 @@
+{
+  "build": "gpt-5-3-codex",
+  "rubric_version": "1",
+  "scores": {
+    "nielsen": {
+      "visibility_of_system_status": {
+        "score": 4,
+        "confidence": 0.88,
+        "evidence": [
+          ".error-banner[role='alert']",
+          ".status-dot[data-status='down']",
+          ".todo-item[aria-busy='true'] { opacity: 0.7; }"
+        ]
+      },
+      "match_with_real_world": {
+        "score": 3,
+        "confidence": 0.84,
+        "evidence": [
+          "\"What needs to be done?\"",
+          "\"Add\"",
+          "\"API base\""
+        ]
+      },
+      "user_control_freedom": {
+        "score": 2,
+        "confidence": 0.68,
+        "evidence": [
+          "button[data-testid='error-banner-dismiss']",
+          ".todo-delete",
+          "button[type='submit']"
+        ]
+      },
+      "consistency_standards": {
+        "score": 4,
+        "confidence": 0.9,
+        "evidence": [
+          "input[type='text'], input[type='url']",
+          "button[type='submit'], .todo-delete",
+          "border-radius: 10px"
+        ]
+      },
+      "error_prevention": {
+        "score": 2,
+        "confidence": 0.78,
+        "evidence": [
+          "form[data-testid='add-form'][novalidate]",
+          "#add-error-slot",
+          "input[type='url']"
+        ]
+      },
+      "recognition_over_recall": {
+        "score": 4,
+        "confidence": 0.86,
+        "evidence": [
+          "label[for='api-base-input']",
+          "placeholder='What needs to be done?'",
+          "\"No todos yet. Add one above.\""
+        ]
+      },
+      "flexibility_efficiency": {
+        "score": 2,
+        "confidence": 0.62,
+        "evidence": [
+          "form[data-testid='add-form']",
+          "button[type='submit']",
+          ".todo-delete"
+        ]
+      },
+      "aesthetic_minimalist": {
+        "score": 5,
+        "confidence": 0.9,
+        "evidence": [
+          ".app { max-width: 760px; }",
+          "body { background: #f7f8fb; }",
+          "font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\""
+        ]
+      },
+      "help_users_with_errors": {
+        "score": 4,
+        "confidence": 0.88,
+        "evidence": [
+          "\"Network error. Check API base URL.\"",
+          "button[data-testid='error-banner-dismiss']",
+          "#add-error-slot"
+        ]
+      },
+      "help_and_documentation": {
+        "score": 4,
+        "confidence": 0.85,
+        "evidence": [
+          "placeholder='http://localhost:3000'",
+          "placeholder='What needs to be done?'",
+          "\"No todos yet. Add one above.\""
+        ]
+      }
+    },
+    "gestalt": {
+      "proximity": {
+        "score": 4,
+        "confidence": 0.87,
+        "evidence": [
+          ".app-header",
+          "form[data-testid='add-form']",
+          ".todo-list { margin: 0.75rem 0 0; }"
+        ]
+      },
+      "similarity": {
+        "score": 4,
+        "confidence": 0.89,
+        "evidence": [
+          "input[type='text'], input[type='url']",
+          "button[type='submit'], .todo-delete",
+          ".todo-item"
+        ]
+      },
+      "alignment": {
+        "score": 4,
+        "confidence": 0.88,
+        "evidence": [
+          ".app { max-width: 760px; margin: 0 auto; }",
+          ".app-header { display: flex; justify-content: space-between; }",
+          ".todo-item { display: grid; }"
+        ]
+      }
+    },
+    "hierarchy": {
+      "score": 4,
+      "confidence": 0.87,
+      "evidence": [
+        ".app-header h1 { font-size: 1.5rem; }",
+        ".error-banner",
+        ".empty-state"
+      ]
+    },
+    "typography": {
+      "score": 4,
+      "confidence": 0.9,
+      "evidence": [
+        "font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\"",
+        "font-size: 1.5rem",
+        "font-size: 0.95rem"
+      ]
+    },
+    "state_loading": {
+      "score": 2,
+      "confidence": 0.72,
+      "evidence": [
+        ".todo-item[aria-busy='true'] { opacity: 0.7; }",
+        "button:disabled, input:disabled { opacity: 0.6; }"
+      ]
+    },
+    "state_empty": {
+      "score": 4,
+      "confidence": 0.95,
+      "evidence": [
+        "p[data-testid='empty-state']",
+        "\"No todos yet. Add one above.\"",
+        ".empty-state { color: #6b7280; }"
+      ]
+    },
+    "state_error": {
+      "score": 5,
+      "confidence": 0.94,
+      "evidence": [
+        ".error-banner[role='alert']",
+        "\"Network error. Check API base URL.\"",
+        "button[data-testid='error-banner-dismiss']"
+      ]
+    },
+    "contrast": {
+      "score": 4,
+      "confidence": 0.79,
+      "evidence": [
+        "body { background: #f7f8fb; color: #1f2937; }",
+        ".error-banner { background: #fee2e2; color: #991b1b; }",
+        ":focus-visible { outline: 2px solid #2563eb; }"
+      ]
+    },
+    "touch_targets": {
+      "score": 4,
+      "confidence": 0.82,
+      "evidence": [
+        "input[type='text'], input[type='url'] { padding: 0.6rem 0.7rem; }",
+        "button[type='submit'], .todo-delete { padding: 0.55rem 0.8rem; }",
+        ".todo-delete { min-width: 2rem; }"
+      ]
+    },
+    "focus_visible": {
+      "score": 5,
+      "confidence": 0.97,
+      "evidence": [
+        ":focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }"
+      ]
+    }
+  },
+  "summary": "This build presents a clean, restrained todo interface with strong consistency, clear empty-state guidance, and an obvious dismissible error banner that communicates API issues well. Visual hierarchy is solid, with a clear title, simple form, and subdued secondary text, while visible focus styling and basic labeling support accessible interaction. The main weaknesses are limited error prevention and user control: the add form disables native validation, advanced efficiency features are absent, and loading feedback appears to rely mostly on subtle opacity changes. Exposing the technical \"API base\" control also makes the experience feel more developer-facing than everyday-task-oriented.",
+  "top_strengths": [
+    "Clean minimalist layout with consistent form and button styling",
+    "Clear empty and error states, including a dismissible alert with actionable copy",
+    "Strong visible focus treatment and solid baseline accessibility signals"
+  ],
+  "top_issues": [
+    "Little evidence of preventative validation; the add form uses novalidate and the Add action appears available with an empty field",
+    "Limited user control and efficiency features such as undo/cancel, shortcuts, or bulk actions",
+    "Loading or busy feedback is subtle and may be easy to miss"
+  ]
+}

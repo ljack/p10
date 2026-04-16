@@ -1,0 +1,209 @@
+{
+  "build": "gpt-5-4",
+  "rubric_version": "1",
+  "scores": {
+    "nielsen": {
+      "visibility_of_system_status": {
+        "score": 4,
+        "confidence": 0.85,
+        "evidence": [
+          "data-testid=\"api-base-status\"",
+          ".error-banner",
+          ".add-form[aria-busy=\"true\"]"
+        ]
+      },
+      "match_with_real_world": {
+        "score": 4,
+        "confidence": 0.82,
+        "evidence": [
+          "\"What needs to be done?\"",
+          "\"No todos yet. Add one above.\"",
+          "\"Dismiss\""
+        ]
+      },
+      "user_control_freedom": {
+        "score": 2,
+        "confidence": 0.71,
+        "evidence": [
+          "data-testid=\"error-banner-dismiss\"",
+          ".delete-button",
+          "\"buttons\": 2"
+        ]
+      },
+      "consistency_standards": {
+        "score": 4,
+        "confidence": 0.88,
+        "evidence": [
+          "input[type=\"url\"], input[type=\"text\"]",
+          "button[type=\"submit\"]",
+          ".header, main"
+        ]
+      },
+      "error_prevention": {
+        "score": 3,
+        "confidence": 0.76,
+        "evidence": [
+          "type=\"url\"",
+          "maxlength=\"200\"",
+          "form.add-form[novalidate]"
+        ]
+      },
+      "recognition_over_recall": {
+        "score": 4,
+        "confidence": 0.86,
+        "evidence": [
+          ".field-label",
+          "\"What needs to be done?\"",
+          ".empty-state"
+        ]
+      },
+      "flexibility_efficiency": {
+        "score": 2,
+        "confidence": 0.68,
+        "evidence": [
+          "\"buttons\": 2",
+          ".add-form",
+          ".todo-title"
+        ]
+      },
+      "aesthetic_minimalist": {
+        "score": 5,
+        "confidence": 0.86,
+        "evidence": [
+          "\"uniqueFontSizes\": 4",
+          ".header, main",
+          ".empty-state"
+        ]
+      },
+      "help_users_with_errors": {
+        "score": 3,
+        "confidence": 0.84,
+        "evidence": [
+          ".error-banner",
+          "\"Failed to fetch\"",
+          "#add-error-slot"
+        ]
+      },
+      "help_and_documentation": {
+        "score": 4,
+        "confidence": 0.85,
+        "evidence": [
+          "\"Simple frontend for the Todo REST API\"",
+          "\"http://localhost:3000\"",
+          "\"No todos yet. Add one above.\""
+        ]
+      }
+    },
+    "gestalt": {
+      "proximity": {
+        "score": 5,
+        "confidence": 0.87,
+        "evidence": [
+          ".header",
+          ".api-input-row",
+          ".add-form"
+        ]
+      },
+      "similarity": {
+        "score": 4,
+        "confidence": 0.84,
+        "evidence": [
+          "border-radius: 12px",
+          "input[type=\"url\"], input[type=\"text\"]",
+          "button[type=\"submit\"]"
+        ]
+      },
+      "alignment": {
+        "score": 5,
+        "confidence": 0.86,
+        "evidence": [
+          "width: min(760px, calc(100% - 2rem))",
+          ".add-form { grid-template-columns: 1fr auto; }",
+          ".todo-item { grid-template-columns: auto 1fr auto auto; }"
+        ]
+      }
+    },
+    "hierarchy": {
+      "score": 4,
+      "confidence": 0.84,
+      "evidence": [
+        ".header h1",
+        "button[type=\"submit\"]",
+        ".field-label"
+      ]
+    },
+    "typography": {
+      "score": 4,
+      "confidence": 0.82,
+      "evidence": [
+        "font-family: Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"uniqueFontSizes\": 4",
+        ".header p { color: var(--muted); }"
+      ]
+    },
+    "state_loading": {
+      "score": 2,
+      "confidence": 0.78,
+      "evidence": [
+        ".add-form[aria-busy=\"true\"] { opacity: 0.72; }",
+        ".todo-item[aria-busy=\"true\"] { opacity: 0.65; }"
+      ]
+    },
+    "state_empty": {
+      "score": 5,
+      "confidence": 0.94,
+      "evidence": [
+        ".empty-state",
+        "\"No todos yet. Add one above.\"",
+        "data-testid=\"todo-list\" aria-live=\"polite\""
+      ]
+    },
+    "state_error": {
+      "score": 4,
+      "confidence": 0.9,
+      "evidence": [
+        ".error-banner",
+        "\"Failed to fetch\"",
+        "data-testid=\"error-banner-dismiss\""
+      ]
+    },
+    "contrast": {
+      "score": 2,
+      "confidence": 0.97,
+      "evidence": [
+        "axe: color-contrast",
+        "button[type=\"submit\"]",
+        "contrast ratio 3.67"
+      ]
+    },
+    "touch_targets": {
+      "score": 4,
+      "confidence": 0.84,
+      "evidence": [
+        "button[type=\"submit\"] { padding: 0.8rem 1rem; }",
+        ".delete-button { width: 2rem; height: 2rem; }",
+        "input[type=\"url\"], input[type=\"text\"] { padding: 0.8rem 0.95rem; }"
+      ]
+    },
+    "focus_visible": {
+      "score": 5,
+      "confidence": 0.95,
+      "evidence": [
+        "button:focus-visible",
+        "input:focus-visible",
+        ".todo-title:focus-visible"
+      ]
+    }
+  },
+  "summary": "This build presents a clean, restrained todo interface with strong grouping, clear labels, and solid empty/error states. The header, API configuration, and add form are visually coherent, and explicit focus-visible styling improves keyboard affordance perception. The main weaknesses are state communication and accessibility: loading feedback is subtle, user-control options are limited, and the primary Add button fails contrast requirements. Overall, the UI feels polished and understandable, but it needs stronger recovery and accessibility details to reach exemplary quality.",
+  "top_strengths": [
+    "Clean card-based layout with strong spacing and alignment",
+    "Helpful empty-state and visible connection/error feedback",
+    "Explicit focus-visible styles on primary interactive elements"
+  ],
+  "top_issues": [
+    "Primary Add button has insufficient color contrast",
+    "Loading/busy state relies mostly on opacity with no explicit indicator",
+    "Limited user-control affordances such as undo/cancel for destructive actions"
+  ]
+}

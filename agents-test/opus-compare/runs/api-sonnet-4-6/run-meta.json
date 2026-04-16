@@ -1,0 +1,8 @@
+{
+  "model": "anthropic/claude-sonnet-4-6",
+  "started": "2026-04-16T17:52:16Z",
+  "ended": "2026-04-16T17:54:05Z",
+  "durationSec": 109,
+  "prompt": "todo-api.prompt.md",
+  "cwd": "/Users/jarkko/_dev/p10/agents-test/opus-compare/runs/api-sonnet-4-6"
+}

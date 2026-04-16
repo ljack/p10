@@ -1,0 +1,63 @@
+{
+  "build": "gpt-5-3-codex",
+  "uiUrl": "http://localhost:9090",
+  "apiUrl": "http://localhost:4040",
+  "timestamp": "2026-04-16T19:13:04.006Z",
+  "pageWeightBytes": {
+    "html": 565891,
+    "css": 3240,
+    "js": 11118,
+    "total": 580249
+  },
+  "html": {
+    "sizeBytes": 565891,
+    "headings": {
+      "h1": 1,
+      "h2": 0,
+      "h3": 0
+    },
+    "landmarks": {
+      "main": 1,
+      "header": 1,
+      "nav": 0,
+      "footer": 0
+    },
+    "inputsWithLabels": 15,
+    "buttons": 2,
+    "images": 3,
+    "imagesWithAlt": 0,
+    "htmlLang": true
+  },
+  "css": {
+    "uniqueColors": 16,
+    "colorSample": [
+      "#f7f8fb",
+      "#1f2937",
+      "#fee2e2",
+      "#991b1b",
+      "#fecaca",
+      "#ef4444",
+      "#fff",
+      "rgba(0, 0, 0, 0.1)",
+      "#16a34a",
+      "#cbd5e1"
+    ],
+    "uniqueFontSizes": 3,
+    "fontSizeSample": [
+      "1.5rem",
+      "0.95rem",
+      "0.9rem"
+    ],
+    "uniqueSpacings": 13,
+    "uniqueZIndexes": 0,
+    "importantCount": 0,
+    "rulesCount": 38,
+    "sizeBytes": 3240
+  },
+  "axe": {
+    "violations": 0,
+    "bySeverity": {},
+    "topViolations": [],
+    "incomplete": 0
+  }
+}

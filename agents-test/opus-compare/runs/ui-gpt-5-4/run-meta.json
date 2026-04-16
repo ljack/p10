@@ -1,0 +1,8 @@
+{
+  "model": "openai/gpt-5.4",
+  "started": "2026-04-16T19:15:00Z",
+  "ended": "2026-04-16T19:22:09Z",
+  "durationSec": 429,
+  "prompt": "todo-ui-v2.prompt.md",
+  "cwd": "/Users/jarkko/_dev/p10/agents-test/opus-compare/runs/ui-gpt-5-4"
+}

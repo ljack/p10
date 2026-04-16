@@ -1,0 +1,64 @@
+{
+  "build": "gpt-5-4",
+  "uiUrl": "http://localhost:9191",
+  "apiUrl": "http://localhost:4141",
+  "timestamp": "2026-04-16T19:29:06.305Z",
+  "pageWeightBytes": {
+    "html": 566050,
+    "css": 4496,
+    "js": 9029,
+    "total": 579575
+  },
+  "html": {
+    "sizeBytes": 566050,
+    "headings": {
+      "h1": 1,
+      "h2": 0,
+      "h3": 0
+    },
+    "landmarks": {
+      "main": 1,
+      "header": 1,
+      "nav": 0,
+      "footer": 0
+    },
+    "inputsWithLabels": 16,
+    "buttons": 2,
+    "images": 3,
+    "imagesWithAlt": 0,
+    "htmlLang": true
+  },
+  "css": {
+    "uniqueColors": 20,
+    "colorSample": [
+      "#f5f7fb",
+      "#ffffff",
+      "#d7dce5",
+      "#1d2433",
+      "#647089",
+      "#2563eb",
+      "#1d4ed8",
+      "#dc2626",
+      "#fef2f2",
+      "#16a34a"
+    ],
+    "uniqueFontSizes": 4,
+    "fontSizeSample": [
+      "clamp(1.6rem, 3vw, 2rem)",
+      "0.92rem",
+      "0.95rem",
+      "0.9rem"
+    ],
+    "uniqueSpacings": 16,
+    "uniqueZIndexes": 0,
+    "importantCount": 0,
+    "rulesCount": 47,
+    "sizeBytes": 4496
+  },
+  "axe": {
+    "violations": 0,
+    "bySeverity": {},
+    "topViolations": [],
+    "incomplete": 0
+  }
+}

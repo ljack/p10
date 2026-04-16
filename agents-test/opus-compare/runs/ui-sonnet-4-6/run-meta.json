@@ -1,0 +1,8 @@
+{
+  "model": "anthropic/claude-sonnet-4-6",
+  "started": "2026-04-16T17:54:05Z",
+  "ended": "2026-04-16T17:57:49Z",
+  "durationSec": 224,
+  "prompt": "todo-ui-v2.prompt.md",
+  "cwd": "/Users/jarkko/_dev/p10/agents-test/opus-compare/runs/ui-sonnet-4-6"
+}
