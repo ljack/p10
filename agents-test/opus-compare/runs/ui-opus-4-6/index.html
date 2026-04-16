@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Todo App</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Todos</h1>
+      <div class="api-config">
+        <label for="api-base">API</label>
+        <input type="text" id="api-base" placeholder="http://localhost:3000">
+        <span id="health-dot" class="dot" title="Checking…"></span>
+      </div>
+    </header>
+
+    <div id="error-banner" class="error-banner hidden">
+      <span id="error-msg"></span>
+      <button id="error-dismiss" title="Dismiss">&times;</button>
+    </div>
+
+    <form id="add-form" class="add-form">
+      <input type="text" id="add-input" placeholder="What needs to be done?" autocomplete="off">
+      <button type="submit" id="add-btn">Add</button>
+      <p id="add-error" class="inline-error hidden"></p>
+    </form>
+
+    <ul id="todo-list" class="todo-list"></ul>
+    <p id="empty-state" class="empty-state hidden">No todos yet. Add one above.</p>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

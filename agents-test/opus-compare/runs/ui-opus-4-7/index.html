@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Todos</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>Todos</h1>
+      <div class="api">
+        <label for="api-base">API</label>
+        <input id="api-base" type="url" spellcheck="false" autocomplete="off" />
+        <span id="status-dot" class="dot" title="API status"></span>
+      </div>
+    </header>
+
+    <main>
+      <div id="error-banner" class="error-banner" hidden>
+        <span id="error-message"></span>
+        <button type="button" id="error-dismiss" aria-label="Dismiss error">✕</button>
+      </div>
+
+      <form id="add-form" class="add-form" autocomplete="off">
+        <input
+          id="add-input"
+          type="text"
+          placeholder="What needs doing?"
+          maxlength="500"
+          required
+        />
+        <button type="submit" id="add-button">Add</button>
+      </form>
+      <p id="add-error" class="inline-error" hidden></p>
+
+      <ul id="todo-list" class="todo-list"></ul>
+      <p id="empty-state" class="empty" hidden>No todos yet. Add one above.</p>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

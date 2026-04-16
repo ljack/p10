@@ -1,5 +1,14 @@
 runs/**/node_modules/
 runs/**/package-lock.json
 runs/**/session/
+runs/**/fix-session/
+runs/**/judge-session/
 runs/**/stream.jsonl
+runs/**/fix-stream.jsonl
+runs/**/*.prefix
 runs/*.launcher.log
+tests/node_modules/
+tests/test-results/
+reports/**/judge-prompt.md
+reports/**/design-rubric.raw.txt
+reports/**/judge-session/

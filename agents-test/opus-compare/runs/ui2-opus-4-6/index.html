@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Todo App</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div data-testid="app-root" id="app-root">
+
+    <div data-testid="error-banner" id="error-banner" hidden>
+      <span class="error-message"></span>
+      <button data-testid="error-banner-dismiss" aria-label="Dismiss error" id="error-banner-dismiss">✕</button>
+    </div>
+
+    <header>
+      <h1>Todo App</h1>
+      <div class="api-base-row">
+        <label for="api-base-input">API:</label>
+        <input data-testid="api-base-input" id="api-base-input" type="text" aria-label="API base URL" placeholder="http://localhost:3000">
+        <span data-testid="api-base-status" id="api-base-status" data-status="down" class="status-dot"></span>
+      </div>
+    </header>
+
+    <main>
+      <form data-testid="add-form" id="add-form">
+        <input data-testid="add-input" id="add-input" type="text" aria-label="New todo title" placeholder="What needs to be done?">
+        <button data-testid="add-submit" id="add-submit" type="submit">Add</button>
+        <div data-testid="add-error" id="add-error" hidden></div>
+      </form>
+
+      <p data-testid="empty-state" id="empty-state" hidden>No todos yet. Add one above.</p>
+      <ul data-testid="todo-list" id="todo-list"></ul>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

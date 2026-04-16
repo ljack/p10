@@ -1,0 +1,85 @@
+{
+  "build": "opus-4-7",
+  "uiUrl": "http://localhost:9797",
+  "apiUrl": "http://localhost:4747",
+  "timestamp": "2026-04-16T17:37:53.954Z",
+  "pageWeightBytes": {
+    "html": 565873,
+    "css": 4561,
+    "js": 9517,
+    "total": 579951
+  },
+  "html": {
+    "sizeBytes": 565873,
+    "headings": {
+      "h1": 1,
+      "h2": 0,
+      "h3": 0
+    },
+    "landmarks": {
+      "main": 1,
+      "header": 1,
+      "nav": 0,
+      "footer": 0
+    },
+    "inputsWithLabels": 15,
+    "buttons": 2,
+    "images": 3,
+    "imagesWithAlt": 0,
+    "htmlLang": true
+  },
+  "css": {
+    "uniqueColors": 16,
+    "colorSample": [
+      "#f7f7f8",
+      "#1f2328",
+      "#57606a",
+      "#d0d7de",
+      "#fff",
+      "#0969da",
+      "#d1242f",
+      "#1a7f37",
+      "#ffebe9",
+      "#ffcecb"
+    ],
+    "uniqueFontSizes": 7,
+    "fontSizeSample": [
+      "28px",
+      "13px",
+      "14px",
+      "16px",
+      "15px",
+      "12px",
+      "22px"
+    ],
+    "uniqueSpacings": 15,
+    "uniqueZIndexes": 0,
+    "importantCount": 0,
+    "rulesCount": 47,
+    "sizeBytes": 4561
+  },
+  "axe": {
+    "violations": 1,
+    "bySeverity": {
+      "moderate": 1
+    },
+    "topViolations": [
+      {
+        "id": "region",
+        "impact": "moderate",
+        "help": "All page content should be contained by landmarks",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.11/region?application=axeAPI",
+        "nodes": [
+          {
+            "target": [
+              ".error-message"
+            ],
+            "html": "<span class=\"error-message\">Failed to load todos: Failed to fetch</span>",
+            "failureSummary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+          }
+        ]
+      }
+    ],
+    "incomplete": 1
+  }
+}

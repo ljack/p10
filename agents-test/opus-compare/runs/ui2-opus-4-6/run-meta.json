@@ -1,0 +1,8 @@
+{
+  "model": "claude-opus-4-6",
+  "started": "2026-04-16T17:17:08Z",
+  "ended": "2026-04-16T17:18:57Z",
+  "durationSec": 109,
+  "prompt": "todo-ui-v2.prompt.md",
+  "cwd": "/Users/jarkko/_dev/p10/agents-test/opus-compare/runs/ui2-opus-4-6"
+}

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Todos</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div id="app-root" data-testid="app-root">
+    <header class="header">
+      <h1>Todos</h1>
+      <div class="api-base">
+        <label class="api-base-label">
+          <span>API:</span>
+          <input
+            type="text"
+            data-testid="api-base-input"
+            aria-label="API base URL"
+            id="api-base-input"
+            spellcheck="false"
+            autocomplete="off"
+          />
+        </label>
+        <span
+          class="status-dot"
+          data-testid="api-base-status"
+          data-status="down"
+          id="api-base-status"
+          title="API health"
+        ></span>
+      </div>
+    </header>
+
+    <div
+      class="error-banner"
+      data-testid="error-banner"
+      id="error-banner"
+      role="alert"
+      hidden
+    >
+      <span class="error-message"></span>
+      <button
+        type="button"
+        data-testid="error-banner-dismiss"
+        aria-label="Dismiss error"
+        id="error-banner-dismiss"
+      >✕</button>
+    </div>
+
+    <main class="main">
+      <form
+        class="add-form"
+        data-testid="add-form"
+        id="add-form"
+        autocomplete="off"
+      >
+        <input
+          type="text"
+          data-testid="add-input"
+          aria-label="New todo title"
+          id="add-input"
+          placeholder="What needs doing?"
+        />
+        <button type="submit" data-testid="add-submit" id="add-submit">Add</button>
+      </form>
+
+      <ul class="todo-list" data-testid="todo-list" id="todo-list"></ul>
+
+      <div
+        class="empty-state"
+        data-testid="empty-state"
+        id="empty-state"
+        hidden
+      >No todos yet. Add one above.</div>
+    </main>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

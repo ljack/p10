@@ -1,0 +1,209 @@
+{
+  "build": "opus-4-6",
+  "rubric_version": "1",
+  "scores": {
+    "nielsen": {
+      "visibility_of_system_status": {
+        "score": 3,
+        "confidence": 0.84,
+        "evidence": [
+          "#api-base-status.status-dot[data-status]",
+          "[aria-busy='true'] { opacity: 0.6; }",
+          ".todo-time"
+        ]
+      },
+      "match_with_real_world": {
+        "score": 4,
+        "confidence": 0.89,
+        "evidence": [
+          "Todo App",
+          "What needs to be done?",
+          "No todos yet. Add one above."
+        ]
+      },
+      "user_control_freedom": {
+        "score": 3,
+        "confidence": 0.75,
+        "evidence": [
+          "#error-banner-dismiss",
+          ".todo-delete",
+          ".todo-item input[type='checkbox']"
+        ]
+      },
+      "consistency_standards": {
+        "score": 4,
+        "confidence": 0.87,
+        "evidence": [
+          "#api-base-input, #add-input",
+          "#add-submit",
+          ".todo-item"
+        ]
+      },
+      "error_prevention": {
+        "score": 2,
+        "confidence": 0.8,
+        "evidence": [
+          "#add-submit:disabled",
+          "#add-error",
+          "#add-input[type='text']"
+        ]
+      },
+      "recognition_over_recall": {
+        "score": 4,
+        "confidence": 0.83,
+        "evidence": [
+          "label[for='api-base-input']",
+          "placeholder='What needs to be done?'",
+          "#todo-list"
+        ]
+      },
+      "flexibility_efficiency": {
+        "score": 2,
+        "confidence": 0.69,
+        "evidence": [
+          "#add-form",
+          ".todo-title-input",
+          ".todo-item input[type='checkbox']"
+        ]
+      },
+      "aesthetic_minimalist": {
+        "score": 5,
+        "confidence": 0.92,
+        "evidence": [
+          "#app-root { max-width: 600px; }",
+          "body { background: #f5f5f5; color: #222; }",
+          ".todo-item { background: #fff; border: 1px solid #e0e0e0; }"
+        ]
+      },
+      "help_users_with_errors": {
+        "score": 3,
+        "confidence": 0.7,
+        "evidence": [
+          "#error-banner",
+          "#error-banner-dismiss",
+          "#add-error"
+        ]
+      },
+      "help_and_documentation": {
+        "score": 4,
+        "confidence": 0.82,
+        "evidence": [
+          "placeholder='http://localhost:3000'",
+          "placeholder='What needs to be done?'",
+          "No todos yet. Add one above."
+        ]
+      }
+    },
+    "gestalt": {
+      "proximity": {
+        "score": 4,
+        "confidence": 0.88,
+        "evidence": [
+          "header { margin-bottom: 1.5rem; }",
+          "#add-form { gap: 0.5rem; margin-bottom: 1rem; }",
+          ".todo-item { margin-bottom: 0.4rem; }"
+        ]
+      },
+      "similarity": {
+        "score": 5,
+        "confidence": 0.91,
+        "evidence": [
+          ".todo-item",
+          "#api-base-input, #add-input",
+          "border-radius: 6px"
+        ]
+      },
+      "alignment": {
+        "score": 4,
+        "confidence": 0.86,
+        "evidence": [
+          "#app-root { max-width: 600px; margin: 0 auto; }",
+          ".api-base-row { display: flex; }",
+          "#add-form { display: flex; }"
+        ]
+      }
+    },
+    "hierarchy": {
+      "score": 4,
+      "confidence": 0.86,
+      "evidence": [
+        "header h1 { font-size: 1.6rem; }",
+        "#add-submit { background: #4a90d9; color: #fff; }",
+        ".todo-time { font-size: 0.75rem; }"
+      ]
+    },
+    "typography": {
+      "score": 3,
+      "confidence": 0.85,
+      "evidence": [
+        "body { line-height: 1.5; }",
+        "font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+        ".todo-time { font-size: 0.75rem; color: #999; }"
+      ]
+    },
+    "state_loading": {
+      "score": 2,
+      "confidence": 0.66,
+      "evidence": [
+        "[aria-busy='true'] { opacity: 0.6; pointer-events: none; }",
+        "#api-base-status.status-dot[data-status]"
+      ]
+    },
+    "state_empty": {
+      "score": 4,
+      "confidence": 0.68,
+      "evidence": [
+        "#empty-state",
+        "No todos yet. Add one above.",
+        "#empty-state { text-align: center; padding: 2rem 0; }"
+      ]
+    },
+    "state_error": {
+      "score": 4,
+      "confidence": 0.63,
+      "evidence": [
+        "#error-banner",
+        "#error-banner-dismiss",
+        "#add-error"
+      ]
+    },
+    "contrast": {
+      "score": 2,
+      "confidence": 0.95,
+      "evidence": [
+        "axe: color-contrast (3 nodes)",
+        ".todo-time { color: #999; }",
+        "#empty-state { color: #888; }"
+      ]
+    },
+    "touch_targets": {
+      "score": 2,
+      "confidence": 0.9,
+      "evidence": [
+        ".todo-item input[type='checkbox'] { width: 18px; height: 18px; }",
+        ".todo-delete { padding: 0 0.3rem; }",
+        "#add-submit { padding: 0.5rem 1.2rem; }"
+      ]
+    },
+    "focus_visible": {
+      "score": 4,
+      "confidence": 0.9,
+      "evidence": [
+        "#api-base-input:focus { outline: 2px solid #4a90d9; }",
+        "#add-input:focus { outline: 2px solid #4a90d9; }",
+        ".todo-delete:focus { outline: 2px solid #4a90d9; }"
+      ]
+    }
+  },
+  "summary": "Opus-4-6 delivers a clean, focused todo UI with strong alignment, consistent card styling, and an obvious primary action. The language is plain and familiar, and the form-plus-list layout makes the core add, check, and delete workflow easy to recognize. Its main weaknesses are in feedback and resilience: loading is only lightly indicated, system health relies on a small unlabeled status dot, and preventive validation or undo paths are limited. Visual accessibility also needs attention because secondary gray text and small controls contribute to confirmed contrast and target-size concerns.",
+  "top_strengths": [
+    "Minimal, consistent single-column layout with clear primary task entry",
+    "Plain-language copy with useful placeholders and empty-state guidance",
+    "Visible focus styling and built-in error containers support basic usability"
+  ],
+  "top_issues": [
+    "Low-contrast secondary text/status styling triggers axe color-contrast violations",
+    "Loading and system-status feedback are subtle and rely on dimming or a small color dot",
+    "Small checkbox/delete targets and limited preventive validation reduce usability"
+  ]
+}

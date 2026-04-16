@@ -1,0 +1,67 @@
+{
+  "build": "opus-4-6",
+  "uiUrl": "http://localhost:9696",
+  "apiUrl": "http://localhost:4646",
+  "timestamp": "2026-04-16T17:39:19.079Z",
+  "pageWeightBytes": {
+    "html": 566645,
+    "css": 3835,
+    "js": 7727,
+    "total": 578207
+  },
+  "html": {
+    "sizeBytes": 566645,
+    "headings": {
+      "h1": 1,
+      "h2": 0,
+      "h3": 0
+    },
+    "landmarks": {
+      "main": 1,
+      "header": 1,
+      "nav": 0,
+      "footer": 0
+    },
+    "inputsWithLabels": 19,
+    "buttons": 4,
+    "images": 3,
+    "imagesWithAlt": 0,
+    "htmlLang": true
+  },
+  "css": {
+    "uniqueColors": 20,
+    "colorSample": [
+      "#f5f5f5",
+      "#222",
+      "#fee",
+      "#e88",
+      "#b00",
+      "#555",
+      "#ccc",
+      "#4a90d9",
+      "#3c3",
+      "#c33"
+    ],
+    "uniqueFontSizes": 7,
+    "fontSizeSample": [
+      "1rem",
+      "1.6rem",
+      "0.85rem",
+      "0.95rem",
+      "inherit",
+      "0.75rem",
+      "1.3rem"
+    ],
+    "uniqueSpacings": 16,
+    "uniqueZIndexes": 0,
+    "importantCount": 0,
+    "rulesCount": 44,
+    "sizeBytes": 3835
+  },
+  "axe": {
+    "violations": 0,
+    "bySeverity": {},
+    "topViolations": [],
+    "incomplete": 1
+  }
+}

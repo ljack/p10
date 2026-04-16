@@ -1,0 +1,45 @@
+{
+  "violations": 1,
+  "bySeverity": {
+    "serious": 1
+  },
+  "topViolations": [
+    {
+      "id": "color-contrast",
+      "impact": "serious",
+      "help": "Elements must meet minimum color contrast ratio thresholds",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.11/color-contrast?application=axeAPI",
+      "nodes": [
+        {
+          "target": [
+            "#add-submit"
+          ],
+          "html": "<button data-testid=\"add-submit\" id=\"add-submit\" type=\"submit\">Add</button>",
+          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.34 (foreground color: #ffffff, background color: #4a90d9, font size: 12.0pt (16px), font weight: normal). Expected contrast ratio of 4.5:1"
+        },
+        {
+          "target": [
+            "li:nth-child(1) > .todo-time[data-testid=\"todo-item-time\"]"
+          ],
+          "html": "<span class=\"todo-time\" data-testid=\"todo-item-time\">just now</span>",
+          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.84 (foreground color: #999999, background color: #ffffff, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+        },
+        {
+          "target": [
+            "li:nth-child(2) > .todo-time[data-testid=\"todo-item-time\"]"
+          ],
+          "html": "<span class=\"todo-time\" data-testid=\"todo-item-time\">5m ago</span>",
+          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.84 (foreground color: #999999, background color: #ffffff, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+        },
+        {
+          "target": [
+            "li:nth-child(3) > .todo-time[data-testid=\"todo-item-time\"]"
+          ],
+          "html": "<span class=\"todo-time\" data-testid=\"todo-item-time\">9m ago</span>",
+          "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.84 (foreground color: #999999, background color: #ffffff, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+        }
+      ]
+    }
+  ],
+  "incomplete": 1
+}
