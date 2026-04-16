@@ -1,0 +1,406 @@
+/* ============================================
+   Note Editor Component - Minimal Design
+   Optimized for Focus & Writing
+   ============================================ */
+
+.note-editor {
+  max-width: var(--container-narrow);
+  margin: 0 auto;
+  background: var(--color-white);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  animation: slideUp var(--transition-slow);
+}
+
+/* Editor Header */
+.note-editor-header {
+  padding: var(--space-6);
+  background: var(--color-white);
+  border-bottom: 1px solid var(--color-gray-100);
+}
+
+.note-editor-header h2 {
+  font-size: var(--text-xl);
+  font-weight: var(--font-semibold);
+  color: var(--color-gray-900);
+  margin: 0;
+}
+
+.note-editor-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.note-editor-meta span {
+  font-size: var(--text-xs);
+  color: var(--color-gray-500);
+  background: var(--color-gray-50);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+}
+
+/* Loading State */
+.note-editor-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-16);
+}
+
+.note-editor-loading .loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--color-gray-200);
+  border-top-color: var(--color-primary);
+  border-radius: var(--radius-full);
+  animation: spin 0.8s linear infinite;
+  margin-bottom: var(--space-4);
+}
+
+.note-editor-loading p {
+  color: var(--color-gray-500);
+  font-size: var(--text-base);
+  margin: 0;
+}
+
+/* Error Display */
+.note-editor-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-4) var(--space-6);
+  padding: var(--space-4);
+  background: var(--color-danger-light);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  border-radius: var(--radius-lg);
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+}
+
+.error-icon {
+  font-size: var(--text-base);
+  flex-shrink: 0;
+}
+
+/* ============================================
+   Form Styles - Writing-Focused
+   ============================================ */
+.note-editor-form {
+  padding: var(--space-6);
+}
+
+.form-group {
+  margin-bottom: var(--space-6);
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--color-gray-700);
+}
+
+/* Title Input - Prominent */
+.title-input {
+  width: 100%;
+  padding: var(--space-4);
+  background: var(--color-gray-50);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: var(--color-gray-900);
+  transition: all var(--transition-base);
+}
+
+.title-input:hover {
+  border-color: var(--color-gray-300);
+}
+
+.title-input:focus {
+  background: var(--color-white);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+.title-input::placeholder {
+  color: var(--color-gray-400);
+  font-weight: var(--font-normal);
+}
+
+.title-input:disabled {
+  background: var(--color-gray-100);
+  color: var(--color-gray-500);
+  cursor: not-allowed;
+}
+
+/* Content Textarea - Writing Focus */
+.content-textarea {
+  width: 100%;
+  padding: var(--space-4);
+  background: var(--color-gray-50);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  color: var(--color-gray-800);
+  resize: vertical;
+  min-height: 280px;
+  transition: all var(--transition-base);
+}
+
+.content-textarea:hover {
+  border-color: var(--color-gray-300);
+}
+
+.content-textarea:focus {
+  background: var(--color-white);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+.content-textarea::placeholder {
+  color: var(--color-gray-400);
+}
+
+.content-textarea:disabled {
+  background: var(--color-gray-100);
+  color: var(--color-gray-500);
+  cursor: not-allowed;
+}
+
+/* Character Count */
+.character-count {
+  text-align: right;
+  margin-top: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-gray-400);
+}
+
+/* ============================================
+   Action Buttons - Clear Hierarchy
+   ============================================ */
+.note-editor-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--color-gray-100);
+  gap: var(--space-4);
+}
+
+.primary-actions {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.secondary-actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+/* Primary Button - Save */
+.save-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-width: 140px;
+  padding: var(--space-3) var(--space-5);
+  background: var(--color-primary);
+  color: var(--color-white);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-sm);
+}
+
+.save-button:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.save-button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+.save-button:disabled {
+  background: var(--color-gray-300);
+  color: var(--color-gray-500);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Secondary Button - Cancel */
+.cancel-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3) var(--space-5);
+  background: var(--color-white);
+  color: var(--color-gray-600);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-base);
+}
+
+.cancel-button:hover:not(:disabled) {
+  background: var(--color-gray-50);
+  border-color: var(--color-gray-400);
+  color: var(--color-gray-800);
+}
+
+.cancel-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Danger Button - Delete */
+.delete-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-white);
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-base);
+}
+
+.delete-button:hover:not(:disabled) {
+  background: var(--color-danger-light);
+  border-color: rgba(220, 38, 38, 0.3);
+}
+
+.delete-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Button Spinner */
+.button-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: var(--radius-full);
+  animation: spin 0.8s linear infinite;
+}
+
+/* ============================================
+   Responsive Design
+   ============================================ */
+@media (max-width: 768px) {
+  .note-editor {
+    margin: var(--space-3);
+    border-radius: var(--radius-lg);
+  }
+  
+  .note-editor-header {
+    padding: var(--space-4);
+  }
+  
+  .note-editor-header h2 {
+    font-size: var(--text-lg);
+  }
+  
+  .note-editor-meta {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  
+  .note-editor-form {
+    padding: var(--space-4);
+  }
+  
+  .title-input {
+    font-size: var(--text-base);
+    padding: var(--space-3);
+  }
+  
+  .content-textarea {
+    min-height: 200px;
+    padding: var(--space-3);
+  }
+  
+  .note-editor-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .primary-actions {
+    flex-direction: column;
+    order: 1;
+  }
+  
+  .secondary-actions {
+    order: 2;
+    justify-content: center;
+    margin-top: var(--space-3);
+  }
+  
+  .save-button,
+  .cancel-button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .note-editor {
+    margin: var(--space-2);
+    border-radius: var(--radius-md);
+  }
+  
+  .note-editor-header,
+  .note-editor-form {
+    padding: var(--space-3);
+  }
+  
+  .note-editor-header h2 {
+    font-size: var(--text-base);
+  }
+  
+  .form-group {
+    margin-bottom: var(--space-4);
+  }
+  
+  .save-button {
+    min-width: 100%;
+    padding: var(--space-4);
+  }
+  
+  .delete-button {
+    padding: var(--space-3) var(--space-4);
+  }
+}
+
+/* Writing Mode - Extra focus on content */
+@media (min-height: 700px) {
+  .content-textarea {
+    min-height: 350px;
+  }
+}
+
+@media (min-height: 900px) {
+  .content-textarea {
+    min-height: 450px;
+  }
+}

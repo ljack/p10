@@ -1,0 +1,177 @@
+/* ============================================
+   Notes App - Main Layout Styles
+   ============================================ */
+
+.App {
+  max-width: var(--container-max);
+  margin: 0 auto;
+  padding: var(--space-6);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.App-header {
+  margin-bottom: var(--space-8);
+  padding-bottom: var(--space-6);
+  border-bottom: 1px solid var(--color-gray-200);
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.header-title {
+  flex: 1;
+}
+
+.header-title h1 {
+  font-size: var(--text-3xl);
+  font-weight: var(--font-bold);
+  color: var(--color-gray-900);
+  margin-bottom: var(--space-2);
+  letter-spacing: -0.025em;
+  cursor: default;
+  transition: color var(--transition-base);
+}
+
+.header-title h1.clickable {
+  cursor: pointer;
+}
+
+.header-title h1.clickable:hover {
+  color: var(--color-primary);
+}
+
+.header-title p {
+  color: var(--color-gray-500);
+  font-size: var(--text-base);
+  margin: 0;
+}
+
+/* Header Navigation & Actions */
+.header-actions,
+.header-navigation {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* Primary Button - Create Note */
+.create-note-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  background: var(--color-primary);
+  color: var(--color-white);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-sm);
+}
+
+.create-note-button:hover {
+  background: var(--color-primary-hover);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.create-note-button:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Secondary Button - Back */
+.back-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  background: var(--color-white);
+  color: var(--color-gray-700);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-base);
+}
+
+.back-button:hover {
+  background: var(--color-gray-50);
+  border-color: var(--color-gray-400);
+  color: var(--color-gray-900);
+}
+
+/* Main Content Area */
+.App-main {
+  flex: 1;
+  animation: fadeIn var(--transition-slow);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .App {
+    padding: var(--space-4);
+  }
+  
+  .App-header {
+    margin-bottom: var(--space-6);
+    padding-bottom: var(--space-4);
+  }
+  
+  .header-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-4);
+    text-align: center;
+  }
+  
+  .header-title h1 {
+    font-size: var(--text-2xl);
+  }
+  
+  .header-actions,
+  .header-navigation {
+    justify-content: center;
+  }
+  
+  .create-note-button,
+  .back-button {
+    width: 100%;
+    max-width: 280px;
+    padding: var(--space-4) var(--space-6);
+  }
+}
+
+@media (max-width: 480px) {
+  .App {
+    padding: var(--space-3);
+  }
+  
+  .header-title h1 {
+    font-size: var(--text-xl);
+  }
+  
+  .header-title p {
+    font-size: var(--text-sm);
+  }
+  
+  .create-note-button,
+  .back-button {
+    max-width: 100%;
+    font-size: var(--text-sm);
+  }
+}
+
+/* Dark Mode Support (future) */
+@media (prefers-color-scheme: dark) {
+  /* Can be enabled when dark mode is implemented */
+}
