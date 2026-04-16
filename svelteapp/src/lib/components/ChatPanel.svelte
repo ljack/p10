@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { tick, onMount, onDestroy } from 'svelte';
 	import { subscribe as subscribeContainer, type ContainerState } from '$lib/sandbox/container';
 	// Note: getInstance, restartBackend, apiExplorer now used via toolExecutor module
 	import { initRepo, commitAll, isRepoInitialized } from '$lib/git/gitManager';
@@ -8,6 +8,7 @@
 	import { specManager } from '$lib/specs/specManager.svelte';
 	import { errorStore } from '$lib/stores/errors.svelte';
 	import { debugBus } from '$lib/debug/debugBus.svelte';
+	import { activeProject } from '$lib/stores/project.svelte';
 	import {
 		executeTool,
 		parseToolBlocks,
@@ -35,6 +36,47 @@
 			timestamp: new Date()
 		}
 	]);
+
+	let saveTimeout: any;
+	function persistChat() {
+		if (!activeProject.isActive) return;
+		clearTimeout(saveTimeout);
+		saveTimeout = setTimeout(async () => {
+			try {
+				await fetch(`${activeProject.apiBase}/chat`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ messages })
+				});
+			} catch { /* ignore */ }
+		}, 500);
+	}
+
+	onMount(async () => {
+		if (activeProject.isActive) {
+			try {
+				const resp = await fetch(`${activeProject.apiBase}/chat`);
+				if (resp.ok) {
+					const data = await resp.json();
+					if (data.messages && data.messages.length > 0) {
+						messages = data.messages.map((m: any) => ({
+							...m,
+							timestamp: new Date(m.timestamp)
+						}));
+					}
+				}
+			} catch (err) {
+				console.error('[chat] Failed to load history:', err);
+			}
+		}
+	});
+
+	// Reactively save whenever messages changes
+	$effect(() => {
+		if (messages.length > 0) {
+			persistChat();
+		}
+	});
 
 	let input = $state('');
 	let isStreaming = $state(false);

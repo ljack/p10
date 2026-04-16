@@ -174,9 +174,20 @@ class SpecManager {
 	updateSpec(filename: string, content: string, status?: SpecDocument['status']) {
 		this.specs = this.specs.map((s) =>
 			s.filename === filename
-				? { ...s, content, status: status ?? (content ? 'draft' : 'empty'), updatedAt: new Date() }
+				? { ...s, content, status: status ?? (content.trim() ? 'draft' : 'empty'), updatedAt: new Date() }
 				: s
 		);
+	}
+
+	/** Update spec and optionally sync to container file system */
+	updateSpecWithSync(filename: string, content: string, status?: SpecDocument['status']) {
+		this.updateSpec(filename, content, status);
+		// Import dynamically to avoid circular dependencies
+		import('./specLoader.ts').then(({ saveSpecToContainer }) => {
+			saveSpecToContainer(filename, content).catch(err => 
+				console.warn(`Failed to save ${filename} to container:`, err)
+			);
+		});
 	}
 
 	approveSpec(filename: string) {

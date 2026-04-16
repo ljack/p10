@@ -78,7 +78,12 @@ class PipelineStore {
 	/** Load from REST API */
 	async fetchFromMaster() {
 		try {
-			const resp = await fetch('/api/pipelines');
+			// Use project-scoped endpoint if available
+			const { activeProject } = await import('./project.svelte');
+			const url = activeProject.isActive
+				? `${activeProject.apiBase}/pipelines`
+				: '/api/pipelines';
+			const resp = await fetch(url);
 			if (!resp.ok) return;
 			const data = await resp.json();
 

@@ -7,8 +7,10 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { debugBus } from '$lib/debug/debugBus.svelte';
 	import { browserDaemon } from '$lib/daemon/browserDaemon.svelte';
+	import { startSpecSync } from '$lib/specs/specLoader';
+	import { activeProject } from '$lib/stores/project.svelte';
 
-	let { projectId }: { projectId: string } = $props();
+	let { projectId, projectName }: { projectId: string; projectName?: string } = $props();
 
 	let splitPos = $state(40); // percentage
 	let dragging = $state(false);
@@ -29,10 +31,13 @@
 		dragging = false;
 	}
 
-	// Start browser daemon + push state snapshots
+	// Start browser daemon + push state snapshots + spec sync
 	onMount(() => {
-		debugBus.log('event', 'app', 'P10 workspace mounted');
+		// Set active project context
+		activeProject.setProject({ id: projectId, name: projectName || projectId });
+		debugBus.log('event', 'app', `P10 workspace mounted for project ${projectId}`);
 		browserDaemon.start();
+		startSpecSync();
 		const interval = setInterval(async () => {
 			try {
 				const snapshot = debugBus.getSnapshot();
@@ -62,12 +67,13 @@
 		return () => {
 			clearInterval(interval);
 			window.removeEventListener('keydown', handleKeyboard);
+			activeProject.clear();
 		};
 	});
 </script>
 
 <div class="h-full flex flex-col bg-background text-foreground">
-	<TopBar {projectId} />
+	<TopBar {projectId} {projectName} />
 
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div

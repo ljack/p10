@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { browserDaemon } from '$lib/daemon/browserDaemon.svelte';
+	import { activeProject } from '$lib/stores/project.svelte';
 
 	interface TaskAnalysis {
 		rewrittenTitle?: string;
@@ -64,7 +65,8 @@
 
 	async function fetchBoard() {
 		try {
-			const resp = await fetch('/api/board');
+			const boardUrl = activeProject.isActive ? `${activeProject.apiBase}/board` : '/api/board';
+			const resp = await fetch(boardUrl);
 			if (!resp.ok) throw new Error(`${resp.status}`);
 			board = await resp.json();
 			error = null;
@@ -85,7 +87,8 @@
 
 		addingTask = true;
 		try {
-			await fetch('/api/board', {
+			const addUrl = activeProject.isActive ? `${activeProject.apiBase}/board/task` : '/api/board';
+			await fetch(addUrl, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({

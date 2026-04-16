@@ -17,6 +17,7 @@ import { errorStore } from '$lib/stores/errors.svelte';
 import { settings } from '$lib/stores/settings.svelte';
 import { startAutonomousWatch, stopAutonomousWatch } from './autonomousAgent';
 import { pipelineStore } from '$lib/stores/pipelines.svelte';
+import { meshEventsStore } from '$lib/stores/meshEvents.svelte';
 
 /** Try to discover Master Daemon URL from well-known file or default */
 function discoverMasterUrl(): string {
@@ -107,6 +108,8 @@ class BrowserDaemon {
 
 	/** Send a message to another daemon via Master */
 	send(to: string, type: string, payload: any) {
+		// Log outgoing mesh event
+		meshEventsStore.addOutgoing(type, payload, to);
 		this.client?.send(to, type, payload);
 	}
 
@@ -117,6 +120,9 @@ class BrowserDaemon {
 
 	/** Handle incoming messages from other daemons */
 	private async handleMessage(msg: any) {
+		// Log incoming mesh event
+		meshEventsStore.addIncoming(msg.type, msg.payload, msg.from);
+		
 		switch (msg.type) {
 			case 'pong': {
 				// Master heartbeat response with system TLDR

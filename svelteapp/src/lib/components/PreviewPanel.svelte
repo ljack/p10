@@ -8,8 +8,9 @@
 	} from '$lib/sandbox/container';
 	import ApiPreview from './ApiPreview.svelte';
 	import KanbanBoard from './KanbanBoard.svelte';
+	import Terminal from './Terminal.svelte';
 
-	type PreviewTab = 'web' | 'api' | 'mobile' | 'board';
+	type PreviewTab = 'web' | 'api' | 'mobile' | 'board' | 'terminal';
 
 	let activeTab = $state<PreviewTab>('web');
 	let containerState = $state<ContainerState>({
@@ -51,7 +52,8 @@
 		{ id: 'web', label: 'Web' },
 		{ id: 'api', label: 'API' },
 		{ id: 'mobile', label: 'Mobile' },
-		{ id: 'board', label: 'Board' }
+		{ id: 'board', label: 'Board' },
+		{ id: 'terminal', label: '💻 Terminal' }
 	];
 
 	onMount(() => {
@@ -112,6 +114,8 @@
 					{tab.label}
 					{#if tab.id === 'api' && containerState.servers.some((s) => s.type === 'backend')}
 						<span class="text-accent ml-0.5">●</span>
+					{:else if tab.id === 'terminal' && containerState.status === 'ready'}
+						<span class="text-accent ml-0.5">●</span>
 					{/if}
 				</button>
 			{/if}
@@ -168,6 +172,13 @@
 		{#if activeTab === 'board'}
 			<div class="absolute inset-0">
 				<KanbanBoard />
+			</div>
+		{/if}
+
+		<!-- Terminal -->
+		{#if activeTab === 'terminal'}
+			<div class="absolute inset-0">
+				<Terminal />
 			</div>
 		{/if}
 

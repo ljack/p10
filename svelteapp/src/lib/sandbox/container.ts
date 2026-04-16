@@ -241,7 +241,7 @@ async function mountSnapshot(container: WebContainer, snapshot: FsSnapshot): Pro
 	await container.mount(tree);
 }
 
-/** Save current WebContainer state to IndexedDB */
+/** Save current WebContainer state to IndexedDB + server */
 export async function saveSnapshot(): Promise<void> {
 	if (!instance) return;
 	try {
@@ -251,7 +251,22 @@ export async function saveSnapshot(): Promise<void> {
 			savedAt: new Date().toISOString(),
 			fileCount: Object.keys(files).length,
 		};
+
+		// Save to IndexedDB (fast, local)
 		await saveSnapshotToIdb(snapshot);
+
+		// Also push to server for project persistence on disk
+		try {
+			const { activeProject } = await import('$lib/stores/project.svelte');
+			if (activeProject.isActive) {
+				fetch(`${activeProject.apiBase}/container-snapshot`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ files }),
+				}).catch(() => { /* best-effort, don't block */ });
+			}
+		} catch { /* no active project, skip server save */ }
+
 		console.log(`[container] Snapshot saved: ${snapshot.fileCount} files`);
 		debugBus.log('event', 'container', `Snapshot saved (${snapshot.fileCount} files)`);
 	} catch (err) {
@@ -406,20 +421,45 @@ export async function boot(): Promise<WebContainer> {
 			}
 		}
 		
-		// Try to restore from IndexedDB snapshot, fall back to starter files
+		// Restore priority: server snapshot (project on disk) → IndexedDB → starter files
 		let restored = false;
+
+		// 1. Try server-side project snapshot (source of truth for project files)
 		try {
-			const snapshot = await loadSnapshotFromIdb();
-			if (snapshot && snapshot.fileCount > 0) {
-				console.log(`[container] Restoring snapshot: ${snapshot.fileCount} files from ${snapshot.savedAt}`);
-				debugBus.log('event', 'container', `Restoring ${snapshot.fileCount} files from snapshot`);
-				await mountSnapshot(instance, snapshot);
-				restored = true;
+			const { activeProject } = await import('$lib/stores/project.svelte');
+			if (activeProject.isActive) {
+				const resp = await fetch(`${activeProject.apiBase}/container-snapshot`);
+				if (resp.ok) {
+					const data = await resp.json();
+					if (data.files && Object.keys(data.files).length > 0) {
+						const fileCount = Object.keys(data.files).length;
+						console.log(`[container] Restoring from server: ${fileCount} files for project ${activeProject.current!.id}`);
+						debugBus.log('event', 'container', `Restoring ${fileCount} files from server snapshot`);
+						await mountSnapshot(instance, { files: data.files, savedAt: new Date().toISOString(), fileCount });
+						restored = true;
+					}
+				}
 			}
 		} catch (err) {
-			console.warn('[container] Snapshot restore failed, using starter files:', err);
+			console.warn('[container] Server snapshot restore failed:', err);
 		}
 
+		// 2. Fall back to IndexedDB (browser-local, for fast reload / offline)
+		if (!restored) {
+			try {
+				const snapshot = await loadSnapshotFromIdb();
+				if (snapshot && snapshot.fileCount > 0) {
+					console.log(`[container] Restoring from IndexedDB: ${snapshot.fileCount} files from ${snapshot.savedAt}`);
+					debugBus.log('event', 'container', `Restoring ${snapshot.fileCount} files from IndexedDB`);
+					await mountSnapshot(instance, snapshot);
+					restored = true;
+				}
+			} catch (err) {
+				console.warn('[container] IndexedDB restore failed, using starter files:', err);
+			}
+		}
+
+		// 3. Fall back to starter files (fresh project)
 		if (!restored) {
 			await instance.mount(starterFiles);
 		}

@@ -5,6 +5,7 @@
 
 import { browserDaemon } from '$lib/daemon/browserDaemon.svelte';
 import { debugBus } from '$lib/debug/debugBus.svelte';
+import { activeProject } from '$lib/stores/project.svelte';
 
 export interface CommandResult {
 	handled: boolean;
@@ -119,7 +120,10 @@ const commands: Record<string, {
 			if (!title) return '⚠️ Usage: `/add <task title>`';
 
 			try {
-				const resp = await fetch('/api/board', {
+				const addUrl = activeProject.isActive
+					? `${activeProject.apiBase}/board/task`
+					: '/api/board';
+				const resp = await fetch(addUrl, {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({
@@ -140,7 +144,10 @@ const commands: Record<string, {
 		description: 'Show kanban board summary',
 		handler: async () => {
 			try {
-				const resp = await fetch('/api/board');
+				const boardUrl = activeProject.isActive
+					? `${activeProject.apiBase}/board`
+					: '/api/board';
+				const resp = await fetch(boardUrl);
 				const data = await resp.json();
 				const cols = ['planned', 'in-progress', 'done', 'failed', 'blocked'] as const;
 				const icons: Record<string, string> = {
@@ -174,6 +181,112 @@ const commands: Record<string, {
 				return `**Query response:**\n${answer}`;
 			} catch {
 				return '❌ Query timed out — no daemon responded';
+			}
+		}
+	},
+	new: {
+		description: 'Create a new project (resets WebContainer and clears project tasks)',
+		handler: async (args) => {
+			if (!browserDaemon.connected) return '○ Mesh offline — start with `./start-mesh.sh`';
+
+			try {
+				// Reset project data (project-scoped if available)
+				const resetUrl = activeProject.isActive
+					? `${activeProject.apiBase}/reset`
+					: '/api/project/new';
+				const resp = await fetch(resetUrl, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({})
+				});
+				
+				if (!resp.ok) {
+					return `❌ Failed to reset project: ${resp.statusText}`;
+				}
+				
+				const data = await resp.json();
+				return `🔄 **Project reset!**\n\n` +
+					`✅ Cleared: ${data.tasksCleared || 0} tasks, ${data.pipelinesCleared || 0} pipelines\n` +
+					`✅ WebContainer will reboot with fresh starter template\n\n` +
+					`Ready to build! 🚀`;
+			} catch (err) {
+				return `❌ Failed to create new project: ${err instanceof Error ? err.message : String(err)}`;
+			}
+		}
+	},
+	reset: {
+		description: 'Reset WebContainer only (keeps tasks)',
+		handler: async () => {
+			try {
+				// Import container reset function
+				const { resetContainer } = await import('$lib/sandbox/container');
+				await resetContainer();
+				return `🔄 **WebContainer reset successfully!**\n\nContainer rebooted with fresh starter template.`;
+			} catch (err) {
+				return `❌ Reset failed: ${err instanceof Error ? err.message : String(err)}`;
+			}
+		}
+	},
+	pipeline: {
+		description: 'Create an autonomous development pipeline (e.g., /pipeline Build a todo app)',
+		handler: async (args) => {
+			const instruction = args.trim();
+			if (!instruction) return '⚠️ Usage: `/pipeline <what to build>`';
+			if (!browserDaemon.connected) return '○ Mesh offline';
+
+			try {
+				// Send pipeline creation request to master (project-scoped if available)
+				const pipelineUrl = activeProject.isActive
+					? `${activeProject.apiBase}/pipelines`
+					: 'http://localhost:7777/pipeline';
+				const resp = await fetch(pipelineUrl, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ instruction })
+				});
+				
+				if (!resp.ok) {
+					return `❌ Pipeline failed: ${resp.statusText}`;
+				}
+				
+				const data = await resp.json();
+				return `🚀 **Pipeline created!**\n\n` +
+					`🎯 **Instruction:** "${instruction}"\n` +
+					`🔗 **Pipeline ID:** ${data.pipelineId}\n` +
+					`📝 **Tasks:** ${data.taskCount} (${data.approach})\n\n` +
+					`Executing autonomously... Check Pipelines tab for progress! 📋`;
+			} catch (err) {
+				return `❌ Pipeline failed: ${err instanceof Error ? err.message : String(err)}`;
+			}
+		}
+	},
+	run: {
+		description: 'Start autonomous development run (e.g., /run Build a blog with auth)',
+		handler: async (args) => {
+			const instruction = args.trim();
+			if (!instruction) return '⚠️ Usage: `/run <what to build>`';
+			if (!browserDaemon.connected) return '○ Mesh offline';
+
+			try {
+				// Send run creation request to master
+				const resp = await fetch('http://localhost:7777/run', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ instruction })
+				});
+				
+				if (!resp.ok) {
+					return `❌ Autonomous run failed: ${resp.statusText}`;
+				}
+				
+				const data = await resp.json();
+				return `🌙 **Autonomous run started!**\n\n` +
+					`🎯 **Instruction:** "${instruction}"\n` +
+					`🆔 **Run ID:** ${data.runId}\n` +
+					`📝 **Tasks:** ${data.taskCount}\n\n` +
+					`Running autonomously... Morning report will be generated when complete! 🌅`;
+			} catch (err) {
+				return `❌ Run failed: ${err instanceof Error ? err.message : String(err)}`;
 			}
 		}
 	}

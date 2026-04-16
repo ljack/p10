@@ -8,8 +8,10 @@
 	import PipelinePanel from './PipelinePanel.svelte';
 	import MeshPanel from './MeshPanel.svelte';
 	import { pipelineStore } from '$lib/stores/pipelines.svelte';
+	import { loadSpecsFromContainer } from '$lib/specs/specLoader';
+	import { meshEventsStore } from '$lib/stores/meshEvents.svelte';
 
-	type BottomTab = 'files' | 'git' | 'specs' | 'pipelines' | 'tests' | 'mesh' | 'settings';
+	type BottomTab = 'files' | 'git' | 'specs' | 'pipelines' | 'tests' | 'mesh' | 'events' | 'settings';
 
 	let activeTab = $state<BottomTab | null>(null);
 	let containerState = $state<ContainerState>({
@@ -21,6 +23,18 @@
 	let fileTree = $state<string[]>([]);
 	let gitLog = $state<GitCommit[]>([]);
 	let rollingBack = $state(false);
+	let loadingSpecs = $state(false);
+
+	async function loadSpecFiles() {
+		loadingSpecs = true;
+		try {
+			await loadSpecsFromContainer();
+		} catch (err) {
+			console.error('Failed to load specs:', err);
+		} finally {
+			loadingSpecs = false;
+		}
+	}
 
 	const tabs: { id: BottomTab; label: string; icon: string }[] = [
 		{ id: 'files', label: 'Files', icon: '📁' },
@@ -29,6 +43,7 @@
 		{ id: 'pipelines', label: 'Pipelines', icon: '🚀' },
 		{ id: 'tests', label: 'Tests', icon: '✅' },
 		{ id: 'mesh', label: 'Mesh', icon: '🔗' },
+		{ id: 'events', label: 'Events', icon: '📡' },
 		{ id: 'settings', label: 'Settings', icon: '⚙️' }
 	];
 
@@ -112,6 +127,21 @@
 	}
 </script>
 
+<style>
+	@keyframes rocket-launch {
+		0% { transform: translateY(0px) rotate(0deg); }
+		25% { transform: translateY(-2px) rotate(-1deg); }
+		50% { transform: translateY(-4px) rotate(1deg); }
+		75% { transform: translateY(-2px) rotate(-0.5deg); }
+		100% { transform: translateY(0px) rotate(0deg); }
+	}
+
+	.rocket-active {
+		animation: rocket-launch 1.2s ease-in-out infinite;
+		transform-origin: center bottom;
+	}
+</style>
+
 <div class="border-t border-panel-border bg-panel-bg shrink-0">
 	<div class="h-8 flex items-center px-2 gap-1">
 		{#each tabs as tab}
@@ -121,15 +151,20 @@
 					? 'bg-accent-dim text-accent'
 					: 'text-muted hover:text-foreground'}"
 			>
-				{tab.icon} {tab.label}
+				<span class="{tab.id === 'pipelines' && pipelineStore.hasActive ? 'rocket-active' : ''}">
+					{tab.icon}
+				</span>
+				{tab.label}
 				{#if tab.id === 'pipelines' && pipelineStore.hasActive}
-					<span class="text-accent animate-pulse ml-0.5">●</span>
+					<span class="text-accent animate-pulse ml-0.5" title="Pipeline in progress">●</span>
+				{:else if tab.id === 'events' && meshEventsStore.events.length > 0}
+					<span class="text-accent ml-0.5" title="{meshEventsStore.events.length} events">●</span>
 				{/if}
 			</button>
 		{/each}
 
 		<div class="flex-1"></div>
-		<span class="text-muted text-xs">P10 v0.1.0</span>
+		<span class="text-muted text-xs">P10 v0.1.0 {pipelineStore.hasActive ? '🚀' : ''}</span>
 	</div>
 
 	{#if activeTab}
@@ -173,6 +208,17 @@
 				</div>
 			{:else if activeTab === 'specs'}
 				<div class="text-xs space-y-2">
+					<div class="flex items-center justify-between mb-2">
+						<span class="text-muted font-bold">Project Specifications</span>
+						<button
+							onclick={loadSpecFiles}
+							disabled={loadingSpecs}
+							class="text-accent hover:text-foreground text-xs disabled:opacity-50"
+							title="Load spec files from container"
+						>
+							{loadingSpecs ? '⏳ Loading...' : '🔄 Load from Files'}
+						</button>
+					</div>
 					{#each specManager.specs as spec}
 						<div class="flex items-center gap-2 py-1 px-1 rounded hover:bg-panel-border/30 group">
 							<span class="{spec.status === 'approved' ? 'text-accent' : spec.status === 'draft' ? 'text-warning' : 'text-muted'}">
@@ -219,6 +265,52 @@
 				</div>
 			{:else if activeTab === 'mesh'}
 				<MeshPanel />
+			{:else if activeTab === 'events'}
+				<div class="text-xs space-y-2 max-h-44 overflow-y-auto">
+					<div class="flex items-center justify-between mb-2">
+						<span class="text-muted font-bold">Mesh Events</span>
+						<div class="flex gap-2">
+							<button
+								onclick={() => meshEventsStore.toggleRecording()}
+								class="text-xs px-2 py-1 rounded {meshEventsStore.isRecording ? 'bg-accent text-background' : 'bg-panel-border text-muted'}"
+							>
+								{meshEventsStore.isRecording ? '⏸️ Pause' : '▶️ Record'}
+							</button>
+							<button
+								onclick={() => meshEventsStore.clear()}
+								class="text-xs px-2 py-1 rounded bg-panel-border text-muted hover:text-foreground"
+							>
+								🗑️ Clear
+							</button>
+						</div>
+					</div>
+					
+					{#if meshEventsStore.events.length === 0}
+						<div class="text-muted italic text-center py-4">No mesh events yet...</div>
+					{:else}
+						<div class="space-y-1">
+							{#each meshEventsStore.events as event (event.id)}
+								<div class="flex items-start gap-2 p-1 rounded hover:bg-panel-border/30 group">
+									<span class="{event.direction === 'incoming' ? 'text-accent' : 'text-warning'} text-xs">
+										{event.direction === 'incoming' ? '←' : '→'}
+									</span>
+									<div class="flex-1 min-w-0">
+										<div class="flex items-center gap-2 text-xs">
+											<span class="text-foreground font-mono">{event.type}</span>
+											<span class="text-muted">{event.timestamp.toLocaleTimeString()}</span>
+										</div>
+										<div class="text-muted text-xs truncate">
+											{event.direction === 'incoming' ? event.source || '?' : event.target || '?'}
+											{#if event.data}
+												— {JSON.stringify(event.data).slice(0, 80)}...
+											{/if}
+										</div>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{/if}
+				</div>
 			{:else if activeTab === 'settings'}
 				<div class="text-xs space-y-3">
 					<div>

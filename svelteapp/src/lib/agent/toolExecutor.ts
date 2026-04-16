@@ -7,12 +7,14 @@ import { getInstance, restartBackend } from '$lib/sandbox/container';
 import { specManager, type PlanTask } from '$lib/specs/specManager.svelte';
 import { debugBus } from '$lib/debug/debugBus.svelte';
 import { apiExplorer } from '$lib/stores/apiExplorer.svelte';
+import { activeProject } from '$lib/stores/project.svelte';
 
 /** Push PLAN.md tasks to the kanban board via Master Daemon */
 async function syncPlanTasksToBoard(tasks: PlanTask[]) {
 	for (const task of tasks) {
 		try {
-			await fetch('/api/board', {
+			const url = activeProject.isActive ? `${activeProject.apiBase}/board/task` : '/api/board';
+			await fetch(url, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
@@ -120,7 +122,8 @@ export async function executeTool(
 		switch (name) {
 			case 'write_spec': {
 				const filename = attrs.filename;
-				specManager.updateSpec(filename, body, 'draft');
+				// Update spec and sync to container file system
+				specManager.updateSpecWithSync(filename, body, 'draft');
 				if (filename === 'PLAN.md') {
 					const tasks = specManager.parseTasks(body);
 					// Push unchecked tasks to the kanban board
@@ -129,7 +132,7 @@ export async function executeTool(
 						await syncPlanTasksToBoard(todoTasks);
 					}
 				}
-				return `📋 Spec updated: ${filename} (${body.length} chars)${filename === 'PLAN.md' ? ` — ${specManager.tasks.filter(t => t.status === 'todo').length} tasks added to board` : ''}`;
+				return `📋 Spec updated & saved: ${filename} (${body.length} chars)${filename === 'PLAN.md' ? ` — ${specManager.tasks.filter(t => t.status === 'todo').length} tasks added to board` : ''}`;
 			}
 
 			case 'write_file': {
@@ -139,7 +142,7 @@ export async function executeTool(
 
 				let content = body;
 
-				// Ensure canonical /_routes in server/index.js
+				// Ensure canonical /_routes and robust server startup in server/index.js
 				if (path === 'server/index.js') {
 					// Remove any agent-written /_routes
 					content = content.replace(
@@ -151,14 +154,27 @@ export async function executeTool(
 						''
 					);
 
-					// Inject canonical version before app.listen
-					const listenIdx = content.lastIndexOf('app.listen');
-					if (listenIdx > 0) {
-						content = content.slice(0, listenIdx) + ROUTES_SNIPPET + content.slice(listenIdx);
-					} else {
-						content += ROUTES_SNIPPET;
-					}
-					debugBus.log('event', 'agent', 'Ensured canonical /_routes in server/index.js');
+					// Remove any problematic server startup code
+					content = content.replace(
+						/\/\/ *Start.*server.*[\s\S]*?process\.exit\(1\);/g,
+						''
+					);
+					content = content.replace(
+						/function startServer[\s\S]*?}[\s\S]*?startServer\([\s\S]*?;/g,
+						''
+					);
+					content = content.replace(
+						/app\.listen\([\s\S]*?;/g,
+						''
+					);
+					content = content.replace(
+						/setTimeout\([\s\S]*?startServer[\s\S]*?\);/g,
+						''
+					);
+
+					// Add canonical /_routes and robust server startup
+					content = content.trim() + ROUTES_SNIPPET + SERVER_STARTUP_SNIPPET;
+					debugBus.log('event', 'agent', 'Fixed server startup with proper EADDRINUSE handling');
 				}
 
 				await container!.fs.writeFile(path, content);
@@ -256,12 +272,14 @@ export function parseToolBlocks(
  */
 export function stripToolBlocks(text: string): string {
 	return text
-		// Strip complete tool blocks
-		.replace(/<tool:\w+(?:\s+\w+="[^"]*")*(?:\s*\/>|>[\s\S]*?<\/tool:\w+>)/g, '')
+		// Strip complete tool blocks (handles both double and single quotes, and spaces before >)
+		.replace(/<tool:\w+(?:\s+\w+=(?:"[^"]*"|'[^']*'))*(?:\s*\/>|\s*>[\s\S]*?<\/tool:\w+>)/g, '')
 		// Strip incomplete/partial tool blocks (still streaming)
-		.replace(/<tool:\w+(?:\s+\w+="[^"]*")*>[\s\S]*$/g, '')
+		.replace(/<tool:\w+(?:\s+\w+=(?:"[^"]*"|'[^']*'))*\s*>[\s\S]*$/g, '')
 		// Strip partial opening tag
 		.replace(/<tool:[^>]*$/g, '')
+		// Collapse 3 or more consecutive newlines (even with spaces/CRs between) into exactly 2 newlines (one empty line)
+		.replace(/\n(?:\s*\n){2,}/g, '\n\n')
 		.trim();
 }
 
