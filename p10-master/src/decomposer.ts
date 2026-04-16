@@ -29,6 +29,22 @@ export interface TaskPipeline {
 }
 
 /**
+ * Determine if this is platform development vs user project work
+ */
+export function getProjectContext(instruction: string): 'platform' | 'user-project' {
+  const platformKeywords = [
+    'p10', 'platform', 'deployment pipeline', 'documentation site', 'api reference',
+    'mesh', 'daemon', 'master', 'architecture reference', 'setup guide',
+    'packaging', 'process management', 'monitoring'
+  ];
+  
+  const instructionLower = instruction.toLowerCase();
+  const isPlatformWork = platformKeywords.some(k => instructionLower.includes(k));
+  
+  return isPlatformWork ? 'platform' : 'user-project';
+}
+
+/**
  * Complexity heuristic to determine decomposition approach
  */
 export function classifyComplexity(instruction: string): 'simple' | 'complex' {
@@ -80,20 +96,21 @@ export async function decomposeWithLLM(instruction: string): Promise<PipelineTas
 
   const systemPrompt = `You are a task decomposer. Given a user request, break it into ordered sub-tasks for these agent roles:
 
+- planning_agent: Create specifications (IDEA.md, PRD.md, PLAN.md) before any coding
 - api_agent: Backend development (Express routes, middleware, database operations)
 - web_agent: Frontend development (React components, forms, routing, styling)  
 - review_agent: Testing and verification (endpoint testing, UI verification, error checking)
 
-Output ONLY a JSON array of {role, instruction} objects. API tasks should come before Web tasks. Keep it to 3-6 tasks. Be specific and actionable.
+For new projects, ALWAYS start with planning_agent tasks to create specs before coding. Output ONLY a JSON array of {role, instruction} objects. Be specific and actionable.
 
-Example for "Build auth":
+Example for "Build a todo app":
 [
-  { "role": "api_agent", "instruction": "Create auth endpoints: POST /api/auth/register, POST /api/auth/login. Use in-memory user store. Hash passwords. Return JWT tokens." },
-  { "role": "api_agent", "instruction": "Add auth middleware that verifies JWT from Authorization header." },
-  { "role": "web_agent", "instruction": "Create a login form with email/password fields. On submit, POST to /api/auth/login. Store token in localStorage." },
-  { "role": "web_agent", "instruction": "Create a registration form. On submit, POST to /api/auth/register. Redirect to login on success." },
-  { "role": "web_agent", "instruction": "Add protected route wrapper. Redirect to login if no token." },
-  { "role": "review_agent", "instruction": "Verify the auth flow: register a user, login, access protected route." }
+  { "role": "planning_agent", "instruction": "Create IDEA.md describing the todo app concept, target users, key features (add/edit/delete/complete todos), and technical approach." },
+  { "role": "planning_agent", "instruction": "Create PRD.md with user stories, functional requirements (CRUD operations, UI components), and success metrics." },
+  { "role": "api_agent", "instruction": "Build todo CRUD endpoints: GET /api/todos, POST /api/todos, PUT /api/todos/:id, DELETE /api/todos/:id. Use in-memory array storage." },
+  { "role": "web_agent", "instruction": "Create TodoList component that fetches and displays todos. Add TodoForm for creating new items." },
+  { "role": "web_agent", "instruction": "Add todo interactions: checkboxes for completion, delete buttons, edit inline functionality." },
+  { "role": "review_agent", "instruction": "Test complete todo workflow: create, read, update, delete operations. Verify UI updates correctly." }
 ]`;
 
   try {
@@ -113,10 +130,15 @@ Example for "Build auth":
         .join('\n');
     }
 
+    // Detect empty/missing response (usually means API key missing or invalid)
+    if (!response.trim()) {
+      throw new Error('LLM returned empty response — check that a valid API key exists (e.g. /tmp/p10-api-key.txt)');
+    }
+
     // Extract JSON array from the response
     const jsonMatch = response.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
-      throw new Error('Could not extract JSON array from LLM response');
+      throw new Error(`Could not extract JSON array from LLM response (${response.length} chars). First 200: ${response.slice(0, 200)}`);
     }
 
     const taskSpecs = JSON.parse(jsonMatch[0]);
@@ -288,21 +310,27 @@ export async function decomposeFromPlan(instruction: string, planContent?: strin
  */
 export async function decompose(instruction: string): Promise<TaskPipeline> {
   const complexity = classifyComplexity(instruction);
+  const context = getProjectContext(instruction);
   const pipelineId = makeId();
   
-  console.log(`[decomposer] Processing "${instruction}" as ${complexity} task`);
+  console.log(`[decomposer] Processing "${instruction}" as ${complexity} ${context} task`);
   
-  // For complex tasks, try plan-driven first, fall back to LLM
+  // Strategy: Platform work can use plan-driven, user projects use LLM
   let tasks: PipelineTask[] = [];
   let approach: TaskPipeline['approach'] = 'decomposed';
 
-  if (complexity === 'complex') {
+  if (complexity === 'complex' && context === 'platform') {
     try {
       tasks = await decomposeFromPlan(instruction);
-      if (tasks.length > 0) approach = 'plan-driven';
+      if (tasks.length > 0) {
+        approach = 'plan-driven';
+        console.log(`[decomposer] Using plan-driven for platform work: ${tasks.length} tasks`);
+      }
     } catch (err: any) {
       console.log(`[decomposer] Plan-driven failed: ${err.message}, falling back to LLM`);
     }
+  } else if (complexity === 'complex' && context === 'user-project') {
+    console.log(`[decomposer] Skipping plan-driven for user project, using LLM`);
   }
 
   if (tasks.length === 0) {
