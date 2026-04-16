@@ -1,0 +1,43 @@
+{
+  "meta": {
+    "model": "claude-opus-4-6",
+    "started": "2026-04-16T16:34:12Z",
+    "ended": "2026-04-16T16:35:33Z",
+    "durationSec": 81,
+    "prompt": "todo-api.prompt.md",
+    "cwd": "/Users/jarkko/_dev/p10/agents-test/opus-compare/runs/opus-4-6"
+  },
+  "turns": 8,
+  "messageEnds": 8,
+  "toolCalls": 0,
+  "toolCounts": {},
+  "errorMessages": 0,
+  "tokens": {
+    "input": 12853,
+    "output": 3834,
+    "cacheRead": 18098,
+    "cacheWrite": 6899,
+    "total": 41684
+  },
+  "cost": {
+    "input": 0.06426500000000002,
+    "output": 0.09584999999999999,
+    "cacheRead": 0.009049,
+    "cacheWrite": 0.04311875,
+    "total": 0.21228275000000002
+  },
+  "files": [
+    "README.md",
+    "package-lock.json",
+    "package.json",
+    "src/app.js",
+    "src/server.js",
+    "tests/todos.test.js"
+  ],
+  "totalLoc": 5113,
+  "testResult": {
+    "summary": "15 passed, 15 total",
+    "passed": true,
+    "failed": false
+  }
+}
