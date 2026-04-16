@@ -21,6 +21,9 @@ import { AutoScheduler } from './autoScheduler.js';
 import type { DaemonMessage, RegisterPayload, HeartbeatPayload } from './types.js';
 import type { TaskPipeline } from './decomposer.js';
 import { runManager } from './autonomousRun.js';
+import { userStore } from './userStore.js';
+import { projectStore } from './projectStore.js';
+import { projectDataManager } from './projectData.js';
 
 const PORT = parseInt(process.env.P10_PORT || String(DEFAULT_PORT));
 
@@ -842,6 +845,333 @@ const httpServer = createServer((req, res) => {
 	}
 
 	// --- New Project endpoint ---
+	// --- Auth endpoints ---
+	if (req.method === 'POST' && req.url === '/auth/login') {
+		let body = '';
+		req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+		req.on('end', () => {
+			try {
+				const { username } = JSON.parse(body || '{}');
+				if (!username?.trim()) {
+					res.writeHead(400);
+					res.end(JSON.stringify({ error: 'username required' }));
+					return;
+				}
+				const user = userStore.login(username.trim());
+				console.log(`[auth] Login: ${user.username} (${user.id})`);
+				res.end(JSON.stringify({ user }));
+			} catch (err: any) {
+				res.writeHead(500);
+				res.end(JSON.stringify({ error: err.message }));
+			}
+		});
+		return;
+	}
+
+	if (req.url === '/auth/users' && req.method === 'GET') {
+		res.end(JSON.stringify({ users: userStore.list() }));
+		return;
+	}
+
+	// --- Project endpoints ---
+	if (req.url?.startsWith('/projects') && req.method === 'GET' && req.url?.match(/^\/projects(\?|$)/)) {
+		const urlObj = new URL(req.url, 'http://localhost');
+		const ownerId = urlObj.searchParams.get('ownerId') || req.headers['x-user-id'] as string;
+		const projects = ownerId 
+			? projectStore.listByOwner(ownerId)
+			: projectStore.listAll();
+		res.end(JSON.stringify({ projects }));
+		return;
+	}
+
+	if (req.method === 'POST' && req.url === '/projects') {
+		let body = '';
+		req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+		req.on('end', () => {
+			try {
+				const { name, description, ownerId } = JSON.parse(body || '{}');
+				if (!name?.trim()) {
+					res.writeHead(400);
+					res.end(JSON.stringify({ error: 'name required' }));
+					return;
+				}
+				if (!ownerId) {
+					res.writeHead(400);
+					res.end(JSON.stringify({ error: 'ownerId required' }));
+					return;
+				}
+				const project = projectStore.create(name.trim(), ownerId, description);
+				res.writeHead(201);
+				res.end(JSON.stringify(project));
+			} catch (err: any) {
+				res.writeHead(500);
+				res.end(JSON.stringify({ error: err.message }));
+			}
+		});
+		return;
+	}
+
+	if (req.url?.match(/^\/projects\/[^/]+$/) && req.method === 'GET') {
+		const projectId = req.url.split('/projects/')[1];
+		const project = projectStore.get(projectId);
+		if (!project) {
+			res.writeHead(404);
+			res.end(JSON.stringify({ error: 'Project not found' }));
+			return;
+		}
+		res.end(JSON.stringify(project));
+		return;
+	}
+
+	if (req.method === 'PATCH' && req.url?.match(/^\/projects\/[^/]+$/)) {
+		const projectId = req.url.split('/projects/')[1];
+		let body = '';
+		req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+		req.on('end', () => {
+			try {
+				const updates = JSON.parse(body || '{}');
+				const project = projectStore.update(projectId, updates);
+				if (!project) {
+					res.writeHead(404);
+					res.end(JSON.stringify({ error: 'Project not found' }));
+					return;
+				}
+				res.end(JSON.stringify(project));
+			} catch (err: any) {
+				res.writeHead(500);
+				res.end(JSON.stringify({ error: err.message }));
+			}
+		});
+		return;
+	}
+
+	if (req.method === 'DELETE' && req.url?.match(/^\/projects\/[^/]+$/)) {
+		const projectId = req.url.split('/projects/')[1];
+		const archived = projectStore.archive(projectId);
+		if (!archived) {
+			res.writeHead(404);
+			res.end(JSON.stringify({ error: 'Project not found' }));
+			return;
+		}
+		res.end(JSON.stringify({ success: true }));
+		return;
+	}
+
+	// --- Project-scoped data endpoints ---
+	const projectDataMatch = req.url?.match(/^\/projects\/([^/]+)\/(.+)$/);
+	if (projectDataMatch) {
+		const [, projectId, subpath] = projectDataMatch;
+		const project = projectStore.get(projectId);
+		if (!project) {
+			res.writeHead(404);
+			res.end(JSON.stringify({ error: 'Project not found' }));
+			return;
+		}
+		const pd = projectDataManager.get(projectId);
+
+		// GET /projects/:id/board
+		if (subpath === 'board' && req.method === 'GET') {
+			res.end(JSON.stringify(pd.getBoard()));
+			return;
+		}
+
+		// POST /projects/:id/board/task
+		if (subpath === 'board/task' && req.method === 'POST') {
+			let body = '';
+			req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+			req.on('end', () => {
+				try {
+					const opts = JSON.parse(body || '{}');
+					const task = pd.addTask(opts);
+					projectStore.touch(projectId);
+					res.writeHead(201);
+					res.end(JSON.stringify(task));
+				} catch (err: any) {
+					res.writeHead(500);
+					res.end(JSON.stringify({ error: err.message }));
+				}
+			});
+			return;
+		}
+
+		// PATCH /projects/:id/board/task/:taskId
+		const taskPatchMatch = subpath.match(/^board\/task\/(.+)$/);
+		if (taskPatchMatch && req.method === 'PATCH') {
+			const taskId = taskPatchMatch[1];
+			let body = '';
+			req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+			req.on('end', () => {
+				try {
+					const updates = JSON.parse(body || '{}');
+					if (updates.column) {
+						pd.moveTask(taskId, updates.column);
+					}
+					const task = pd.updateTask(taskId, updates);
+					if (!task) {
+						res.writeHead(404);
+						res.end(JSON.stringify({ error: 'Task not found' }));
+						return;
+					}
+					res.end(JSON.stringify(task));
+				} catch (err: any) {
+					res.writeHead(500);
+					res.end(JSON.stringify({ error: err.message }));
+				}
+			});
+			return;
+		}
+
+		// DELETE /projects/:id/board/task/:taskId
+		if (taskPatchMatch && req.method === 'DELETE') {
+			const taskId = taskPatchMatch[1];
+			pd.deleteTask(taskId);
+			res.end(JSON.stringify({ success: true }));
+			return;
+		}
+
+		// GET /projects/:id/pipelines
+		if (subpath === 'pipelines' && req.method === 'GET') {
+			res.end(JSON.stringify({
+				active: pd.getActivePipelines(),
+				recent: pd.getRecentPipelines(),
+			}));
+			return;
+		}
+
+		// POST /projects/:id/pipelines — create + execute pipeline
+		if (subpath === 'pipelines' && req.method === 'POST') {
+			let body = '';
+			req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+			req.on('end', async () => {
+				try {
+					const { instruction } = JSON.parse(body || '{}');
+					if (!instruction) {
+						res.writeHead(400);
+						res.end(JSON.stringify({ error: 'instruction required' }));
+						return;
+					}
+					const pipeline = await decompose(instruction);
+					pd.storePipeline(pipeline);
+					projectStore.touch(projectId);
+
+					// Also store in global pipeline storage for execution
+					pipelineStorage.store(pipeline);
+					pipelineExecutor.execute(pipeline);
+
+					res.end(JSON.stringify({
+						pipelineId: pipeline.id,
+						instruction: pipeline.instruction,
+						approach: pipeline.approach,
+						taskCount: pipeline.tasks.length,
+						projectId,
+					}));
+				} catch (err: any) {
+					res.writeHead(500);
+					res.end(JSON.stringify({ error: err.message }));
+				}
+			});
+			return;
+		}
+
+		// GET /projects/:id/chat — get chat history
+		if (subpath === 'chat' && req.method === 'GET') {
+			res.end(JSON.stringify({ messages: pd.getChat() }));
+			return;
+		}
+
+		// POST /projects/:id/chat — save chat history
+		if (subpath === 'chat' && req.method === 'POST') {
+			let body = '';
+			req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+			req.on('end', () => {
+				try {
+					const { messages } = JSON.parse(body || '{}');
+					if (Array.isArray(messages)) {
+						pd.saveChat(messages);
+					}
+					res.end(JSON.stringify({ success: true }));
+				} catch (err: any) {
+					res.writeHead(500);
+					res.end(JSON.stringify({ error: err.message }));
+				}
+			});
+			return;
+		}
+
+		// POST /projects/:id/task — send task to pi daemon
+		if (subpath === 'task' && req.method === 'POST') {
+			let body = '';
+			req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+			req.on('end', () => {
+				try {
+					const payload = JSON.parse(body || '{}');
+					const taskId = payload.taskId || makeId();
+					const target = payload.target || '*';
+
+					// Track on project board
+					pd.addTask({
+						title: payload.instruction?.slice(0, 120) || 'Untitled task',
+						instruction: payload.instruction,
+						priority: payload.priority || 'normal',
+					});
+
+					const message: DaemonMessage = {
+						id: makeId(),
+						from: payload.from || 'rest-api',
+						to: target,
+						type: 'task',
+						payload: { taskId, instruction: payload.instruction, context: payload.context, priority: payload.priority || 'normal', projectId },
+						timestamp: new Date().toISOString(),
+					};
+					const result = router.route(message);
+					projectStore.touch(projectId);
+					res.end(JSON.stringify({ taskId, routed: result.routed, blocked: result.blocked, projectId }));
+				} catch (err: any) {
+					res.writeHead(500);
+					res.end(JSON.stringify({ error: err.message }));
+				}
+			});
+			return;
+		}
+
+		// POST /projects/:id/reset — reset project data
+		if (subpath === 'reset' && req.method === 'POST') {
+			const tasksCleared = pd.clearProjectTasks();
+			const pipelinesCleared = pd.clearPipelines();
+			pd.clearChat();
+			pd.clearContainerSnapshot();
+			projectStore.touch(projectId);
+			eventBus.emit('project.reset', 'master', { projectId, tasksCleared, pipelinesCleared });
+			res.end(JSON.stringify({ success: true, tasksCleared, pipelinesCleared }));
+			return;
+		}
+
+		// POST /projects/:id/container-snapshot — save container files
+		if (subpath === 'container-snapshot' && req.method === 'POST') {
+			let body = '';
+			req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+			req.on('end', () => {
+				try {
+					const { files } = JSON.parse(body || '{}');
+					if (files) pd.saveContainerSnapshot(files);
+					res.end(JSON.stringify({ success: true, fileCount: Object.keys(files || {}).length }));
+				} catch (err: any) {
+					res.writeHead(500);
+					res.end(JSON.stringify({ error: err.message }));
+				}
+			});
+			return;
+		}
+
+		// GET /projects/:id/container-snapshot — load container files
+		if (subpath === 'container-snapshot' && req.method === 'GET') {
+			const files = pd.loadContainerSnapshot();
+			res.end(JSON.stringify({ files: files || {} }));
+			return;
+		}
+	}
+
+	// --- Legacy project reset (backward compat) ---
 	if (req.method === 'POST' && req.url === '/project/new') {
 		const tasksCleared = taskBoard.clearProjectTasks();
 		const pipelinesCleared = pipelineStorage.clearAll();
@@ -907,8 +1237,8 @@ const httpServer = createServer((req, res) => {
 
 	// CORS preflight
 	if (req.method === 'OPTIONS') {
-		res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-		res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+		res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
+		res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-User-Id, X-Pi-Session-Id');
 		res.statusCode = 204;
 		res.end();
 		return;

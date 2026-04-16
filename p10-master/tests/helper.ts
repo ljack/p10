@@ -62,6 +62,7 @@ export async function startMaster(): Promise<TestMaster> {
 			...process.env,
 			P10_PORT: String(port),
 			P10_DATA_DIR: dataDir,
+			P10_HOME: dataDir, // isolate user/project storage
 			P10_DISCOVERY_FILE: discoveryFile,
 			P10_PROJECT_DIR: dataDir, // isolate from real PLAN.md
 			P10_NO_INTEGRATIONS: '1',
