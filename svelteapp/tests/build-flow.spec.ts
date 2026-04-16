@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { waitForServers, loadApiKey, setApiKey, sendMessage, waitForAgentDone } from './helpers';
+import { loginAndOpenProject, waitForServers, loadApiKey, setApiKey, sendMessage, waitForAgentDone } from './helpers';
 
 const apiKey = loadApiKey();
 
@@ -10,8 +10,8 @@ test.describe('Build Todo App Flow', () => {
 	test.setTimeout(300_000); // 5 minutes
 
 	test('full-stack todo app builds and all previews work', async ({ page }) => {
-		// Phase 1: Boot
-		await page.goto('/');
+		// Phase 1: Login + boot
+		await loginAndOpenProject(page, 'Build Flow Test');
 		await waitForServers(page);
 		console.log('  ✅ Servers booted');
 

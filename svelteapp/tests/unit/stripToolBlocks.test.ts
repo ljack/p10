@@ -4,11 +4,13 @@ import { describe, it, expect } from 'vitest';
 function stripToolBlocks(text: string): string {
 	return text
 		// Strip complete tool blocks
-		.replace(/<tool:\w+(?:\s+\w+="[^"]*")*(?:\s*\/>|>[\s\S]*?<\/tool:\w+>)/g, '')
+		.replace(/<tool:\w+(?:\s+\w+=(?:"[^"]*"|'[^']*'))*(?:\s*\/>|\s*>[\s\S]*?<\/tool:\w+>)/g, '')
 		// Strip incomplete/partial tool blocks (still streaming)
-		.replace(/<tool:\w+(?:\s+\w+="[^"]*")*>[\s\S]*$/g, '')
+		.replace(/<tool:\w+(?:\s+\w+=(?:"[^"]*"|'[^']*'))*\s*>[\s\S]*$/g, '')
 		// Strip partial opening tag
 		.replace(/<tool:[^>]*$/g, '')
+		// Collapse 3 or more consecutive newlines (even with spaces/CRs between) into exactly 2 newlines (one empty line)
+		.replace(/\n(?:\s*\n){2,}/g, '\n\n')
 		.trim();
 }
 
@@ -43,13 +45,18 @@ describe('stripToolBlocks', () => {
 		expect(stripToolBlocks(text)).toBe('Just normal text with no tools.');
 	});
 
-	it('handles multiple complete blocks', () => {
-		const text = 'A\n<tool:write_file path="a.js">code1</tool:write_file>\nB\n<tool:write_file path="b.js">code2</tool:write_file>\nC';
+	it('handles multiple complete blocks and collapses excess newlines', () => {
+		const text = 'A\n<tool:write_file path="a.js">code1</tool:write_file>\n\n\n\n\nB\n<tool:write_file path="b.js">code2</tool:write_file>\nC';
 		expect(stripToolBlocks(text)).toBe('A\n\nB\n\nC');
 	});
 
 	it('handles complete blocks followed by incomplete', () => {
 		const text = 'A\n<tool:write_file path="a.js">done</tool:write_file>\nB\n<tool:write_file path="b.js">still streaming...';
 		expect(stripToolBlocks(text)).toBe('A\n\nB');
+	});
+
+	it('collapses multiple empty lines with spaces', () => {
+		const text = 'Line 1\n  \n \n\nLine 2';
+		expect(stripToolBlocks(text)).toBe('Line 1\n\nLine 2');
 	});
 });

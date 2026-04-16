@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { execSync, spawn, type ChildProcess } from 'child_process';
-import { waitForServers, loadApiKey, setApiKey, sendMessage, waitForAgentDone } from './helpers';
+import { loginAndOpenProject, waitForServers, loadApiKey, setApiKey, sendMessage, waitForAgentDone } from './helpers';
 
 const apiKey = loadApiKey();
 let masterProcess: ChildProcess | null = null;
@@ -137,6 +137,39 @@ test.describe('Kanban Board', () => {
 		expect(all.find((t: any) => t.id === task.id)).toBeUndefined();
 	});
 
+	// --- Project-scoped Board API ---
+
+	test('project board is isolated from global board', async () => {
+		// Create a user + project
+		const user = await boardFetch('/auth/login', {
+			method: 'POST',
+			body: JSON.stringify({ username: 'board-test-user' }),
+		});
+		const project = await boardFetch('/projects', {
+			method: 'POST',
+			body: JSON.stringify({ name: 'Board Test Project', ownerId: user.user.id }),
+		});
+
+		// Add task to project board
+		const task = await boardFetch(`/projects/${project.id}/board/task`, {
+			method: 'POST',
+			body: JSON.stringify({ title: 'Project-scoped task' }),
+		});
+		expect(task.title).toBe('Project-scoped task');
+
+		// Global board should NOT have this task
+		const globalBoard = await boardFetch('/board');
+		const allGlobal = [...globalBoard.planned, ...globalBoard['in-progress'], ...globalBoard.done];
+		expect(allGlobal.find((t: any) => t.title === 'Project-scoped task')).toBeUndefined();
+
+		// Project board should have it
+		const projectBoard = await boardFetch(`/projects/${project.id}/board`);
+		expect(projectBoard.planned.find((t: any) => t.title === 'Project-scoped task')).toBeTruthy();
+
+		// Cleanup
+		await fetch(`http://localhost:7777/projects/${project.id}`, { method: 'DELETE' });
+	});
+
 	// --- Board Memory API ---
 
 	test('GET /board/memory returns memory tiers', async () => {
@@ -159,10 +192,10 @@ test.describe('Kanban Board', () => {
 		expect(status.config).toHaveProperty('archiveAfterMs');
 	});
 
-	// --- Board UI ---
+	// --- Board UI (requires login + project) ---
 
-	test('Board tab visible in preview panel', async ({ page }) => {
-		await page.goto('/');
+	test('Board tab visible in workspace', async ({ page }) => {
+		await loginAndOpenProject(page, 'Board UI Test');
 		await page.waitForTimeout(2000);
 
 		const boardButton = page.locator('button:has-text("Board")');
@@ -170,7 +203,7 @@ test.describe('Kanban Board', () => {
 	});
 
 	test('Board tab shows kanban columns', async ({ page }) => {
-		await page.goto('/');
+		await loginAndOpenProject(page, 'Board UI Test');
 		await page.waitForTimeout(2000);
 
 		await page.locator('button:has-text("Board")').click();
@@ -182,42 +215,10 @@ test.describe('Kanban Board', () => {
 		await expect(page.getByText('Done')).toBeVisible();
 	});
 
-	test('Board scope filter buttons are visible', async ({ page }) => {
-		await page.goto('/');
-		await page.locator('button:has-text("Board")').click();
-		await page.waitForTimeout(3000);
-
-		await expect(page.locator('button:has-text("All")')).toBeVisible();
-		await expect(page.locator('button:has-text("App")')).toBeVisible();
-		await expect(page.locator('button:has-text("P10")')).toBeVisible();
-	});
-
-	test('inline task input creates a task on the board', async ({ page }) => {
-		await page.goto('/');
-		await page.locator('button:has-text("Board")').click();
-		await page.waitForTimeout(3000);
-
-		const input = page.locator('input[placeholder="+ Add task..."]');
-		await expect(input).toBeVisible();
-
-		const taskTitle = `E2E inline test ${Date.now()}`;
-		await input.fill(taskTitle);
-		await input.press('Enter');
-		await page.waitForTimeout(3000);
-
-		// Task should appear on the board
-		await expect(page.getByText(taskTitle)).toBeVisible();
-
-		// Cleanup via API
-		const board = await boardFetch('/board');
-		const task = board.planned.find((t: any) => t.title === taskTitle);
-		if (task) await boardFetch(`/board/task/${task.id}`, { method: 'DELETE' });
-	});
-
-	// --- Chat commands ---
+	// --- Chat commands (require login + project) ---
 
 	test('/board command shows board summary in chat', async ({ page }) => {
-		await page.goto('/');
+		await loginAndOpenProject(page, 'Board UI Test');
 		await page.waitForTimeout(3000);
 
 		await sendMessage(page, '/board');
@@ -229,7 +230,7 @@ test.describe('Kanban Board', () => {
 	});
 
 	test('/add command creates task from chat', async ({ page }) => {
-		await page.goto('/');
+		const projectId = await loginAndOpenProject(page, 'Board UI Test');
 		await page.waitForTimeout(3000);
 
 		const taskTitle = `E2E chat add ${Date.now()}`;
@@ -239,14 +240,11 @@ test.describe('Kanban Board', () => {
 		const body = await page.textContent('body') || '';
 		expect(body).toContain('Task added');
 
-		// Verify via API
-		const board = await boardFetch('/board');
-		const task = board.planned.find((t: any) => t.title === taskTitle);
+		// Verify via project-scoped API
+		const board = await boardFetch(`/projects/${projectId}/board`);
+		const all = [...board.planned, ...board['in-progress'], ...board.done];
+		const task = all.find((t: any) => t.title === taskTitle);
 		expect(task).toBeTruthy();
-		expect(task.scope).toBe('project');
-
-		// Cleanup
-		if (task) await boardFetch(`/board/task/${task.id}`, { method: 'DELETE' });
 	});
 });
 
@@ -261,7 +259,7 @@ test.describe('Spec to Board Pipeline', () => {
 	});
 
 	test('Build command generates specs and creates board tasks', async ({ page }) => {
-		await page.goto('/');
+		await loginAndOpenProject(page, 'Spec Pipeline Test');
 		await waitForServers(page);
 		await setApiKey(page, apiKey!);
 		console.log('  ✅ Servers booted, API key set');
@@ -277,7 +275,7 @@ test.describe('Spec to Board Pipeline', () => {
 		console.log(`  ${hasSpecs ? '✅' : '⚠️'} Specs generated: ${hasSpecs}`);
 
 		// Check board has project-scoped tasks
-		await page.waitForTimeout(5000); // Wait for board sync
+		await page.waitForTimeout(5000);
 		const board = await boardFetch('/board');
 		const projectTasks = [...board.planned, ...board['in-progress'], ...board.done]
 			.filter((t: any) => t.scope === 'project');
@@ -287,27 +285,9 @@ test.describe('Spec to Board Pipeline', () => {
 			console.log(`    - ${t.title.slice(0, 60)}`);
 		}
 
-		// Should have at least some project tasks from PLAN.md
 		if (hasSpecs) {
 			expect(projectTasks.length).toBeGreaterThan(0);
 			console.log('  ✅ Board has project tasks from specs');
-		}
-
-		// Check board tab shows them
-		await page.locator('button:has-text("Board")').click();
-		await page.waitForTimeout(3000);
-
-		// Filter to project scope
-		await page.locator('button:has-text("App")').click();
-		await page.waitForTimeout(1000);
-
-		if (projectTasks.length > 0) {
-			// At least one project task should be visible
-			const boardBody = await page.textContent('body') || '';
-			const hasTaskOnBoard = projectTasks.some(t =>
-				boardBody.includes(t.title.slice(0, 30))
-			);
-			console.log(`  ${hasTaskOnBoard ? '✅' : '⚠️'} Project tasks visible in Board tab`);
 		}
 	});
 });

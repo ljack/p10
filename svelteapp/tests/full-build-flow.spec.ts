@@ -2,22 +2,22 @@
  * Full Build Flow E2E Test
  * 
  * Tests the complete P10 workflow:
- * 1. Boot WebContainer + servers
- * 2. Set API key
- * 3. Send "Build a notes app with API backend"
- * 4. Wait for agent to write specs (IDEA.md, PRD.md, FSD.md, PLAN.md) or code
- * 5. Wait for agent to build the app (write_file tool calls)
+ * 1. Login + open project
+ * 2. Boot WebContainer + servers
+ * 3. Set API key
+ * 4. Send "Build a notes app with API backend"
+ * 5. Wait for agent to write specs and code
  * 6. Verify API endpoints work via bridge
  * 7. Verify web preview shows the app
  * 8. Verify git commits were made
- * 9. Verify WebContainer snapshot persisted to IndexedDB
+ * 9. Verify WebContainer snapshot persisted to IndexedDB + server
  * 
  * Requires: /tmp/p10-api-key.txt with a valid Anthropic API key
  * Runtime: ~3-8 minutes depending on LLM response time
  */
 
 import { test, expect } from '@playwright/test';
-import { waitForServers, loadApiKey, sendMessage } from './helpers';
+import { loginAndOpenProject, waitForServers, loadApiKey, sendMessage } from './helpers';
 
 const apiKey = loadApiKey();
 
@@ -121,10 +121,10 @@ test.describe('Full Build Flow: Notes App', () => {
 		page.on('console', (msg: any) => consoleLogs.push(msg.text()));
 
 		// ========================================
-		// Phase 1: Boot
+		// Phase 1: Login + Boot
 		// ========================================
-		console.log('Phase 1: Booting WebContainer...');
-		await page.goto('/');
+		console.log('Phase 1: Login and booting WebContainer...');
+		const projectId = await loginAndOpenProject(page, 'Full Build Flow Test');
 		await waitForServers(page);
 		console.log('  ✅ WebContainer booted, 2 servers running');
 
@@ -158,16 +158,13 @@ test.describe('Full Build Flow: Notes App', () => {
 		console.log('Phase 5: Verifying tool executions...');
 		const bodyText = await page.textContent('body') || '';
 
-		// Should have write_file tool calls
 		const hasWriteFile = bodyText.includes('write_file');
 		expect(hasWriteFile).toBeTruthy();
 		console.log('  ✅ write_file tool calls present');
 
-		// Should NOT have raw tool XML in the chat
 		expect(bodyText).not.toContain('<tool:write_file');
 		console.log('  ✅ No raw tool XML in chat');
 
-		// Should have written server files
 		const hasServerFile = bodyText.includes('server/') || bodyText.includes('index.js');
 		expect(hasServerFile).toBeTruthy();
 		console.log('  ✅ Server files written');
@@ -176,20 +173,13 @@ test.describe('Full Build Flow: Notes App', () => {
 		// Phase 6: Verify API endpoints via bridge
 		// ========================================
 		console.log('Phase 6: Testing API endpoints...');
-
-		// The WebContainer bridge uses postMessage to the iframe.
-		// This can be flaky due to cross-origin restrictions.
-		// Try bridge first, fall back to checking if server files exist.
 		const routesResult = await callApi(page, '/api/_routes');
 		let createResult = { status: 0, body: '' };
 
 		if (routesResult.status === 200) {
 			const routes = JSON.parse(routesResult.body);
 			console.log(`  ✅ Route discovery: ${routes.length} routes`);
-			const routePaths = routes.map((r: any) => r.path).join(', ');
-			console.log(`    Routes: ${routePaths}`);
 
-			// Try CRUD operations
 			for (const path of ['/api/notes', '/api/note']) {
 				createResult = await callApi(page, path, 'POST', { title: 'Test Note', body: 'E2E test' });
 				if (createResult.status === 200 || createResult.status === 201) {
@@ -199,7 +189,6 @@ test.describe('Full Build Flow: Notes App', () => {
 			}
 		} else {
 			console.log('  ⚠️ API bridge unavailable (cross-origin) — verifying files instead');
-			// Verify the server file was written by checking the snapshot
 			const hasServerCode = bodyText.includes('server/index.js') || bodyText.includes('server/');
 			expect(hasServerCode).toBeTruthy();
 			console.log('  ✅ Server files confirmed via tool output');
@@ -244,9 +233,11 @@ test.describe('Full Build Flow: Notes App', () => {
 		}
 
 		// ========================================
-		// Phase 9: Verify IndexedDB snapshot
+		// Phase 9: Verify persistence (IndexedDB + server)
 		// ========================================
 		console.log('Phase 9: Checking persistence...');
+
+		// Check IndexedDB
 		const snapshot = await page.evaluate(async () => {
 			return new Promise((resolve) => {
 				const req = indexedDB.open('p10', 1);
@@ -273,21 +264,16 @@ test.describe('Full Build Flow: Notes App', () => {
 		if (snapshot) {
 			const s = snapshot as any;
 			expect(s.fileCount).toBeGreaterThan(5);
-			console.log(`  ✅ IndexedDB snapshot: ${s.fileCount} files at ${s.savedAt}`);
+			console.log(`  ✅ IndexedDB snapshot: ${s.fileCount} files`);
+		}
 
-			// Check that server files are in the snapshot
-			const hasServerFiles = s.files.some((f: string) => f.includes('server'));
-			if (hasServerFiles) {
-				console.log('  ✅ Server files in snapshot');
-			}
-
-			// Check that React/src files are in the snapshot
-			const hasSrcFiles = s.files.some((f: string) => f.startsWith('src/'));
-			if (hasSrcFiles) {
-				console.log('  ✅ Source files in snapshot');
-			}
+		// Check server-side snapshot
+		const serverSnap = await fetch(`http://localhost:7777/projects/${projectId}/container-snapshot`);
+		const serverData = await serverSnap.json();
+		if (serverData.files && Object.keys(serverData.files).length > 0) {
+			console.log(`  ✅ Server snapshot: ${Object.keys(serverData.files).length} files`);
 		} else {
-			console.log('  ⚠️ No IndexedDB snapshot found');
+			console.log('  ⚠️ Server snapshot empty (may need auto-save cycle)');
 		}
 
 		// ========================================
@@ -296,7 +282,6 @@ test.describe('Full Build Flow: Notes App', () => {
 		console.log('Phase 10: Testing reload persistence...');
 		await page.reload();
 
-		// Wait longer for servers after reload (npm install runs)
 		try {
 			await waitForServers(page, 120_000);
 			console.log('  ✅ Servers restarted after reload');
@@ -304,7 +289,6 @@ test.describe('Full Build Flow: Notes App', () => {
 			console.log('  ⚠️ Servers slow to restart after reload (npm install)');
 		}
 
-		// Check restore happened
 		const restoreMsg = consoleLogs.find(l => l.includes('Restoring'));
 		if (restoreMsg) {
 			console.log(`  ✅ Snapshot restored: ${restoreMsg}`);
@@ -322,7 +306,6 @@ test.describe('Full Build Flow: Notes App', () => {
 		console.log(`  API bridge: ${createResult.status > 0 ? 'working' : 'cross-origin blocked'}`);
 		console.log('========================\n');
 
-		// Final hard assertion: at least some tools must have executed
 		expect(toolCount).toBeGreaterThanOrEqual(3);
 	});
 });

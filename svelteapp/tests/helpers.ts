@@ -1,6 +1,53 @@
 import { type Page } from '@playwright/test';
 import * as fs from 'fs';
 
+const MASTER_URL = 'http://localhost:7777';
+const TEST_USERNAME = 'playwright-test';
+
+/**
+ * Login and navigate to a project workspace.
+ * Creates a test user + project if they don't exist.
+ * Returns the project ID.
+ */
+export async function loginAndOpenProject(page: Page, projectName = 'E2E Test Project'): Promise<string> {
+	// Create user via API
+	const loginResp = await fetch(`${MASTER_URL}/auth/login`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ username: TEST_USERNAME }),
+	});
+	const { user } = await loginResp.json();
+
+	// Find or create project
+	const listResp = await fetch(`${MASTER_URL}/projects?ownerId=${user.id}`);
+	const { projects } = await listResp.json();
+	let project = projects.find((p: any) => p.name === projectName && p.status === 'active');
+
+	if (!project) {
+		const createResp = await fetch(`${MASTER_URL}/projects`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ name: projectName, ownerId: user.id }),
+		});
+		project = await createResp.json();
+	}
+
+	// Login via the browser UI
+	await page.goto('/');
+	const input = page.locator('input[placeholder="Enter username"]');
+	await input.fill(TEST_USERNAME);
+	await page.locator('button:has-text("Login")').click();
+
+	// Should redirect to dashboard
+	await page.waitForURL('/dashboard', { timeout: 10000 });
+
+	// Click on the project (or navigate directly)
+	await page.goto(`/projects/${project.id}`);
+	await page.waitForSelector('[class*="bg-background"]', { timeout: 10000 });
+
+	return project.id;
+}
+
 /**
  * Wait for both WebContainer servers (frontend + backend) to be ready.
  * Polls the page body text for "2 servers" indicator.
