@@ -4,6 +4,11 @@ const STALE_THRESHOLD = 15_000; // 15 seconds
 const DEAD_THRESHOLD = 30_000;  // 30 seconds
 const REAP_THRESHOLD = 60_000;  // 60 seconds — remove dead daemons after this
 
+export interface RegisterResult {
+	registration: DaemonRegistration;
+	replaced: DaemonRegistration[];
+}
+
 export class DaemonRegistry {
 	private daemons = new Map<string, DaemonRegistration>();
 	private checkInterval: NodeJS.Timeout | null = null;
@@ -20,15 +25,8 @@ export class DaemonRegistry {
 		}
 	}
 
-	register(id: string, payload: RegisterPayload): DaemonRegistration {
-		// If a daemon with the same name+type already exists (reconnection),
-		// remove the old registration to avoid duplicates
-		for (const [existingId, existing] of this.daemons) {
-			if (existingId !== id && existing.name === payload.name && existing.type === payload.type) {
-				console.log(`[registry] Replacing stale registration: ${existingId} (${existing.name})`);
-				this.daemons.delete(existingId);
-			}
-		}
+	register(id: string, payload: RegisterPayload): RegisterResult {
+		const replaced = this.removeDuplicateRegistrations(id, payload);
 
 		const registration: DaemonRegistration = {
 			id,
@@ -37,11 +35,13 @@ export class DaemonRegistry {
 			capabilities: payload.capabilities,
 			lastHeartbeat: new Date().toISOString(),
 			status: 'alive',
-			tldr: `${payload.name} just registered`
+			tldr: `${payload.name} just registered`,
+			sessionId: payload.sessionId,
+			pid: payload.pid,
 		};
 		this.daemons.set(id, registration);
 		console.log(`[registry] Registered: ${id} (${payload.name}, ${payload.type})`);
-		return registration;
+		return { registration, replaced };
 	}
 
 	unregister(id: string) {
@@ -75,6 +75,42 @@ export class DaemonRegistry {
 
 	getByType(type: string): DaemonRegistration[] {
 		return this.getAll().filter(d => d.type === type);
+	}
+
+	/** Find registrations that would collide with a new registration. */
+	private removeDuplicateRegistrations(id: string, payload: RegisterPayload): DaemonRegistration[] {
+		const replaced: DaemonRegistration[] = [];
+		const newPid = this.extractPid(id, payload);
+		const newSessionId = payload.sessionId || id;
+
+		for (const [existingId, existing] of this.daemons) {
+			if (existingId === id) continue;
+			if (existing.type !== payload.type) continue;
+
+			const sameName = existing.name === payload.name;
+			const sameSession = Boolean(existing.sessionId && existing.sessionId === newSessionId);
+			const samePid = Boolean(newPid && this.extractPid(existing.id, existing) === newPid);
+
+			if (sameName || sameSession || samePid) {
+				console.log(`[registry] Replacing duplicate registration: ${existingId} (${existing.name})`);
+				this.daemons.delete(existingId);
+				replaced.push(existing);
+			}
+		}
+
+		return replaced;
+	}
+
+	private extractPid(id: string, payload: Pick<DaemonRegistration, 'pid' | 'name'> | RegisterPayload): number | undefined {
+		if (typeof payload.pid === 'number' && Number.isFinite(payload.pid)) {
+			return payload.pid;
+		}
+
+		const match = id.match(/^pi-cli-(\d+)-/) || payload.name.match(/\bpid[^\d]*(\d+)\b/i);
+		if (!match) return undefined;
+
+		const pid = Number(match[1]);
+		return Number.isFinite(pid) ? pid : undefined;
 	}
 
 	/** Generate system-wide TLDR from all daemons */

@@ -322,6 +322,8 @@ function connectMeshWs(ctx: any) {
 					name: `Pi CLI (${PI_SESSION_ID.split('-').slice(2).join('-')})`,
 					type: 'pi-cli',
 					capabilities: ['chat.interactive', 'query.answer', 'notify.user'],
+					sessionId: PI_SESSION_ID,
+					pid: process.pid,
 				},
 				timestamp: new Date().toISOString(),
 			}));

@@ -2,11 +2,13 @@
 
 ## Platform Tasks (P10 system/infra)
 
-### 1. Registry cleanup — deduplicate stale daemon registrations
+### 1. Registry cleanup — deduplicate stale daemon registrations (done)
 **Priority:** high  
 **Scope:** platform  
+**Status:** completed 2026-05-04  
 **Description:** Pi CLI reconnects create duplicate daemon registrations in the master registry. PID 31891 shows 5 entries. Need to: deduplicate on re-register by matching PID or session ID, prune dead/stale entries on heartbeat check, and clean up on WebSocket close.  
-**Files:** `p10-master/src/registry.ts`, `p10-master/src/index.ts`
+**Files:** `p10-master/src/registry.ts`, `p10-master/src/index.ts`  
+**Done:** Registry registration now evicts duplicate name/type, session ID, and pi-cli PID registrations, removes stale router connections, broadcasts replacement unregisters, and carries `sessionId`/`pid` metadata from the pi extension.
 
 ### 2. Multi-agent pipeline improvements
 **Priority:** normal  

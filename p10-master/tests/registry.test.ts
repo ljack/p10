@@ -77,6 +77,28 @@ describe('Daemon Registry', () => {
 		d2.close();
 	});
 
+	it('daemon dedup: same pi-cli pid replaces stale session IDs', async () => {
+		const d1 = await master.connectDaemon('Pi CLI (31891-calm)', 'pi-cli', [], {
+			sessionId: 'pi-cli-31891-calm',
+			pid: 31891,
+		});
+
+		const d2 = await master.connectDaemon('Pi CLI (31891-bright)', 'pi-cli', [], {
+			sessionId: 'pi-cli-31891-bright',
+			pid: 31891,
+		});
+
+		await new Promise(r => setTimeout(r, 500));
+
+		const status = await master.fetch('/status');
+		const matches = status.daemons.filter((d: any) => d.type === 'pi-cli' && d.pid === 31891);
+		assert.strictEqual(matches.length, 1, 'Should keep only one pi-cli registration per process pid');
+		assert.strictEqual(matches[0].id, d2.id);
+
+		d1.close();
+		d2.close();
+	});
+
 	it('daemon disconnect removes from registry', async () => {
 		const daemon = await master.connectDaemon('Disconnect Test', 'test');
 		const id = daemon.id;

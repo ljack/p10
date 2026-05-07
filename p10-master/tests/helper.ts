@@ -24,7 +24,7 @@ export interface TestMaster {
 	/** POST JSON to an endpoint */
 	post: (path: string, body: any) => Promise<any>;
 	/** Connect a WebSocket daemon, returns send/close helpers */
-	connectDaemon: (name: string, type: string, capabilities?: string[]) => Promise<TestDaemon>;
+	connectDaemon: (name: string, type: string, capabilities?: string[], extraPayload?: Record<string, unknown>) => Promise<TestDaemon>;
 	/** Stop the master and clean up */
 	cleanup: () => void;
 }
@@ -108,8 +108,8 @@ export async function startMaster(): Promise<TestMaster> {
 		});
 	};
 
-	const connectDaemon = async (name: string, type: string, capabilities: string[] = []): Promise<TestDaemon> => {
-		const daemonId = `test-${type}-${makeId()}`;
+	const connectDaemon = async (name: string, type: string, capabilities: string[] = [], extraPayload: Record<string, unknown> = {}): Promise<TestDaemon> => {
+		const daemonId = String(extraPayload.sessionId || `test-${type}-${makeId()}`);
 		const ws = new WebSocket(wsUrl);
 		const messages: any[] = [];
 		let resolveAck: ((msg: any) => void) | null = null;
@@ -147,7 +147,7 @@ export async function startMaster(): Promise<TestMaster> {
 			from: daemonId,
 			to: 'master',
 			type: 'register',
-			payload: { name, type, capabilities },
+			payload: { name, type, capabilities, ...extraPayload },
 			timestamp: new Date().toISOString(),
 		}));
 		const ack = await ackPromise;

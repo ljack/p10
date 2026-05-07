@@ -56,6 +56,8 @@ export interface DaemonRegistration {
 	status: DaemonStatus;
 	tldr: string;
 	metrics?: Record<string, number>;
+	sessionId?: string;
+	pid?: number;
 }
 
 export interface HeartbeatPayload {
@@ -69,6 +71,8 @@ export interface RegisterPayload {
 	type: DaemonType;
 	capabilities: string[];
 	secret?: string;
+	sessionId?: string;
+	pid?: number;
 }
 
 export interface TaskPayload {

@@ -1267,7 +1267,24 @@ wss.on('connection', (ws: WebSocket) => {
 			case 'register': {
 				const payload = message.payload as RegisterPayload;
 				daemonId = message.from || makeId();
-				const reg = registry.register(daemonId, payload);
+				const { registration: reg, replaced } = registry.register(daemonId, payload);
+				for (const old of replaced) {
+					router.removeConnection(old.id);
+					router.broadcast({
+						id: makeId(),
+						from: 'master',
+						to: '*',
+						type: 'unregister',
+						payload: { id: old.id, replacedBy: daemonId },
+						timestamp: new Date().toISOString()
+					});
+					eventBus.emit('mesh.daemon.replaced', daemonId, {
+						oldId: old.id,
+						newId: daemonId,
+						name: old.name,
+						type: old.type,
+					});
+				}
 				router.addConnection(daemonId, ws);
 
 				// Send ack with assigned ID
@@ -1419,6 +1436,10 @@ wss.on('connection', (ws: WebSocket) => {
 	ws.on('close', () => {
 		if (daemonId) {
 			const daemon = registry.get(daemonId);
+			if (!daemon) {
+				router.removeConnection(daemonId);
+				return;
+			}
 			console.log(`[master] ❌ ${daemon?.name || daemonId} disconnected`);
 			router.removeConnection(daemonId);
 			registry.unregister(daemonId);
